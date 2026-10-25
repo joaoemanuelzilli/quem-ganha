@@ -21,8 +21,9 @@ cp "$ROOT/live/state.public.json" "$WT/snapshots/$TS.json"
 cp "$ROOT/live/state.public.json" "$WT/latest.json"
 [ -f "$ROOT/live/history.ndjson" ] && cp "$ROOT/live/history.ndjson" "$WT/history.ndjson"
 MSG=$(python3 -c "
-import json;s=json.load(open('$WT/latest.json'));f=s['forecast']
-print('Previsão %s — %.2f%% apurado · Lula %.2f%% [%.1f–%.1f] · P(Lula) %.1f%%' % (s['generatedAt'][11:16]+' UTC', s['progress']['pct'], f['lulaPct']['mean'], f['lulaPct']['p05'], f['lulaPct']['p95'], 100*f['winProbLula']))")
+import json;from datetime import datetime,timedelta;s=json.load(open('$WT/latest.json'));f=s['forecast']
+t=(datetime.fromisoformat(s['generatedAt'].replace('Z','+00:00'))-timedelta(hours=3)).strftime('%H:%M')
+print('Previsão %s (Brasília) — %.2f%% apurado · Lula %.2f%% [%.1f–%.1f] · P(Lula) %.1f%%' % (t, s['progress']['pct'], f['lulaPct']['mean'], f['lulaPct']['p05'], f['lulaPct']['p95'], 100*f['winProbLula']))")
 cd "$WT"
 if [ ! -f README.md ]; then
   printf '# 📼 Gravação ao vivo — QUEM GANHA? 2026\n\nSnapshots automáticos da previsão durante a apuração do 2º turno (25/10/2026), gravados pelo worker a cada 10 minutos.\n\n- `latest.json`: último estado publicado\n- `snapshots/AAAAMMDD-HHMM.json`: estado em cada momento (horário de Brasília)\n- `history.ndjson`: todos os ciclos do modelo (%% apurado, previsão, intervalo, chance)\n\nO commit de cada snapshot registra a hora em que a previsão foi feita.\n' > README.md
