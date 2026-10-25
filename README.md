@@ -243,6 +243,14 @@ npx tsx scripts/replay-server.ts timeline_2026_t1_c1.csv.gz 1 &
 TSE_BASE=http://localhost:8790/oficial USE_TSE_CLOCK=1 NO_PUBLISH=1 FRESH=1 npm run worker
 ```
 
+### ☁️ Worker na nuvem (notebook opcional)
+
+O mesmo worker roda no **GitHub Actions** ([`.github/workflows/worker.yml`](.github/workflows/worker.yml)), então o notebook pode ficar desligado:
+
+- **Turnos:** cada job dura até 6 h e, antes de acabar, dispara o próximo. A troca é às 16:40, antes da apuração. Há disparos de reserva agendados para 16:15 e 16:35.
+- **Notebook como reserva:** `run-worker.sh` sobe o worker no papel `backup`. Ele calcula tudo, mas só publica se a nuvem ficar mais de 150 s sem publicar. Quem assume retoma o histórico do último estado publicado.
+- **Configuração necessária:** o segredo `BLOB_READ_WRITE_TOKEN` (Settings → Secrets and variables → Actions), com o mesmo valor do `.env.local`.
+
 ### 📡 Noite da eleição: acompanhando o worker
 
 ```bash
