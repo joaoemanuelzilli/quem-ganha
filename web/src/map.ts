@@ -36,7 +36,7 @@ export class LevelMap {
           <span>+10 Lula ★</span></span>
           <span class="grp"><span class="nd"></span><span>sem votos ainda (só projeção)</span></span>
         </div></div>
-        <div class="uf-detail" aria-live="polite"></div>
+        <div class="uf-detail"></div>
       </div>`;
     const grid = root.querySelector('.tiles') as HTMLElement;
     this.detail = root.querySelector('.uf-detail')!;

@@ -84,8 +84,8 @@ export class Thermo {
     const t = s.thermometers;
     this.root.hidden = !t;
     if (!t) return;
-    this.updateMinas(t.minas);
-    this.updateNordeste(t.nordeste);
+    if (t.minas) this.updateMinas(t.minas);
+    if (t.nordeste) this.updateNordeste(t.nordeste);
   }
 
   private updateMinas(m: Thermometers['minas']): void {

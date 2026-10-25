@@ -319,7 +319,8 @@ export function run(m: PreparedModel, obs: Map<string, UnitObs>): RunResult {
     for (let s = 0; s < K; s++) { let v = mean[s]; for (let t = 0; t <= s; t++) v += Lc[s * K + t] * g[t]; theta[s] = v; }
     for (let i = 0; i < n; i++) { let v = 0; for (let s = 0; s < K; s++) v += theta[s] * X[i * K + s]; xb[i] = v; }
     const kNoise = 1 + p.turnoutSd * rng.normal();
-    const zetaNat = zetaNatSd * rng.normal();
+    // o viés tardio (μ) entra também como incerteza: se ele não se repetir hoje, o intervalo ainda cobre
+    const zetaNat = zetaNatSd * rng.normal() + Math.abs(lateShift) * rng.normal();
     for (let u = 0; u < U; u++) zU[u] = p.sigmaZetaUF * Math.sqrt(ufRemFrac[u]) * rng.normal();
     regSumAe.fill(0);
     for (let j = 0; j < oI.length; j++) { const i = oI[j]; regSumAe[m.region[i]] += oA[j] * (oZ[j] - xb[i]); }

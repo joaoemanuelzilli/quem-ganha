@@ -55,7 +55,7 @@ function agg(ids: string[]) {
 const S = (x: number) => String(Math.round(x));
 function resultJson(o: ReturnType<typeof agg>) {
   return {
-    ele: '6258', t: '2', dg: DAY, hg: hg(),
+    ele: '6258', t: '2', dg: DAY, hg: hg(), tf: cursor >= tl.length ? 's' : 'n',
     carg: [{ cd: '1', agr: [{ par: [{ n: '22', cand: [{ n: '22', nmu: 'FLAVIO BOLSONARO', vap: S(o.f) }] }] }, { par: [{ n: '13', cand: [{ n: '13', nmu: 'LULA', vap: S(o.l) }] }] }] }],
     s: { ts: S(o.ts), st: S(o.st), pst: (o.ts ? (100 * o.st) / o.ts : 0).toFixed(2).replace('.', ',') },
     e: { te: S(o.te), est: S(o.est), c: S(o.c), a: S(o.est - o.c) },

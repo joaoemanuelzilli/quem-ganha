@@ -8,7 +8,7 @@
 //
 //   npm run worker            (precisa de .env.local com BLOB_READ_WRITE_TOKEN p/ publicar)
 // ════════════════════════════════════════════════════════════════════════════
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { spawn, spawnSync } from 'node:child_process';
 import os from 'node:os';
@@ -31,6 +31,7 @@ if (existsSync(`${ROOT}.env.local`)) {
   }
 }
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
+process.env.VERCEL_BLOB_RETRIES ??= '2';
 const PORT = Number(process.env.PORT ?? 8787);
 const POLL_MS = Number(process.env.POLL_MS ?? 15000);
 const PUBLISH_MS = Number(process.env.PUBLISH_MS ?? 30000);
@@ -41,7 +42,8 @@ const NO_PUBLISH = !!process.env.NO_PUBLISH;
 // papéis: 'primary' (nuvem — GitHub Actions) sempre publica; 'backup' (notebook) só publica
 // se ninguém mais publicou nos últimos 150 s — troca automática se a nuvem cair.
 const ROLE = (process.env.WORKER_ROLE ?? 'primary') as 'primary' | 'backup';
-const WORKER_ID = process.env.WORKER_ID ?? `notebook-${os.hostname()}`;
+const WORKER_ID = process.env.WORKER_ID ?? 'notebook';
+void os;
 const PUBLIC_STATE_URL = process.env.PUBLIC_STATE_URL ?? 'https://u0jc3e2rvtfdcwiu.public.blob.vercel-storage.com/live/state.json';
 const EXIT_AFTER_FINAL_MIN = Number(process.env.EXIT_AFTER_FINAL_MIN ?? 0);
 
@@ -60,7 +62,12 @@ const { mun: munPriors, uf: ufPriors } = loadPriors(readJson('data/priors/t1_202
 const prepMun: PreparedModel = prepare(munPriors, 'municipio', munParams);
 const prepUF: PreparedModel = prepare(ufPriors, 'uf', ufParams);
 
-let prev: ForecastState | null = !process.env.FRESH && existsSync(`${LIVE}state.json`) ? JSON.parse(readFileSync(`${LIVE}state.json`, 'utf8')) : null;
+let prev: ForecastState | null = null;
+if (!process.env.FRESH && existsSync(`${LIVE}state.json`)) {
+  try { prev = JSON.parse(readFileSync(`${LIVE}state.json`, 'utf8')); } catch (e) { console.log('⚠ live/state.json ilegível — ignorando:', (e as Error).message); }
+}
+/** grava sem nunca deixar arquivo pela metade (queda de energia, kill -9) */
+const writeAtomic = (p: string, d: string) => { writeFileSync(`${p}.tmp`, d); renameSync(`${p}.tmp`, p); };
 if (prev && prev.status === 'pre') prev = { ...prev, history: [] };
 let lastPublished = 0, lastPublishedKey = '';
 const munObs = new Map<string, UnitObs>();
@@ -84,7 +91,7 @@ async function pool<T>(items: T[], conc: number, fn: (x: T) => Promise<void>) {
 
 async function fetchNational(): Promise<National> {
   const r = parseResult('br', await retry(() => fetchJson(urls.result('br', ELE_T2))));
-  return { dg: r.dg, hg: r.hg, secoes: r.secoes, secoesTot: r.secoesTot, aptos: r.aptos, aptosTot: r.aptosTot, comp: r.comp, lula: r.votes[NR_LULA] ?? 0, flavio: r.votes[NR_FLAVIO] ?? 0, brancos: r.brancos, nulos: r.nulos };
+  return { dg: r.dg, hg: r.hg, secoes: r.secoes, secoesTot: r.secoesTot, aptos: r.aptos, aptosTot: r.aptosTot, comp: r.comp, lula: r.votes[NR_LULA] ?? 0, flavio: r.votes[NR_FLAVIO] ?? 0, brancos: r.brancos, nulos: r.nulos, finished: r.finished };
 }
 
 async function fetchUFs(): Promise<Map<string, UnitObs>> {
@@ -97,18 +104,23 @@ async function fetchUFs(): Promise<Map<string, UnitObs>> {
 }
 
 /** andamento por município → baixa só os municípios que mudaram */
+const munTry = new Map<string, { ab: number; t: number }>();
 async function refreshMunicipios(): Promise<{ changed: number; failed: number }> {
   const todo: string[] = [];
+  const abOf = new Map<string, number>();
   await pool([...UFS], 10, async (uf) => {
     const p = parseProgress(await retry(() => fetchJson(urls.progress(uf, ELE_T2))));
     for (const row of p.rows) {
       if (!row.tp.startsWith('mu')) continue;
       const id = `${uf}${row.abr}`;
-      if (row.secoesTot > 0 && row.secoesTot !== (munSt.get(id) ?? 0)) todo.push(id);
+      const have = munSt.get(id) ?? 0, tr = munTry.get(id);
+      // arquivo do município ainda mais antigo que o andamento (CDN): tenta de novo no máximo 1x/min
+      if (row.secoesTot > 0 && row.secoesTot !== have && !(tr && tr.ab === row.secoesTot && Date.now() - tr.t < 60000)) { todo.push(id); abOf.set(id, row.secoesTot); }
     }
   });
   let failed = 0;
   await pool(todo, 40, async (id) => {
+    munTry.set(id, { ab: abOf.get(id) ?? 0, t: Date.now() });
     try {
       const r = parseResult(id, await retry(() => fetchJson(urls.result(id, ELE_T2)), 2));
       const o = resultToObs(id, r);
@@ -131,7 +143,8 @@ async function otherPublisherAlive(): Promise<boolean> {
   try {
     const s = await fetchJson(`${PUBLIC_STATE_URL}?t=${Date.now()}`, 8000) as ForecastState;
     who = s.publisher ?? '';
-    alive = !!s.publisher && s.publisher !== WORKER_ID && Date.now() - new Date(s.generatedAt).getTime() < 150000;
+    const age = Date.now() - new Date(s.generatedAt).getTime();
+    alive = !!s.publisher && s.publisher !== WORKER_ID && age > -60000 && age < 150000;
   } catch { alive = false; }
   if (alive !== otherCache.alive) log(alive ? `🛰  ${who} está publicando — este notebook fica de reserva` : '🛟 ninguém publicando — este notebook assume');
   otherCache = { t: Date.now(), alive, who };
@@ -141,9 +154,9 @@ let standby = false;
 
 async function publish(s: ForecastState) {
   s.publisher = WORKER_ID;
-  writeFileSync(`${LIVE}state.json`, JSON.stringify(s));
+  writeAtomic(`${LIVE}state.json`, JSON.stringify(s));
   const body = publishable(s);
-  writeFileSync(`${LIVE}state.public.json`, body);
+  writeAtomic(`${LIVE}state.public.json`, body);
   if (!BLOB_TOKEN || NO_PUBLISH) return;
   standby = await otherPublisherAlive();
   if (standby) return;
@@ -152,19 +165,28 @@ async function publish(s: ForecastState) {
   if (now - lastPublished < PUBLISH_MS && key === lastPublishedKey) return;
   if (now - lastPublished < PUBLISH_MS && s.status !== 'pre') return;
   if (s.status === 'pre' && now - lastPublished < 120000 && key === lastPublishedKey) return;
+  // AbortController (não AbortSignal.timeout: a lib re-tenta TimeoutError 10x)
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 20000);
   try {
     const { put } = await import('@vercel/blob');
-    await put('live/state.json', body, { access: 'public', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 60, contentType: 'application/json', token: BLOB_TOKEN });
-    lastPublished = now; lastPublishedKey = key;
+    await put('live/state.json', body, { access: 'public', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 60, contentType: 'application/json', token: BLOB_TOKEN, abortSignal: ac.signal });
+    lastPublished = now; lastPublishedKey = key; lastPublishOk = now;
   } catch (e) {
-    log('⚠ falha ao publicar no Blob:', (e as Error).message);
+    log('⚠ falha ao publicar no Blob (tenta de novo no próximo ciclo):', (e as Error).message);
+  } finally {
+    clearTimeout(timer);
   }
 }
+let lastPublishOk = 0, lastCycleOk = 0;
 
 async function tick() {
   cycle++;
   const t0 = Date.now();
   const nat = await fetchNational();
+  if (nat.secoes === 0) throw new Error('arquivo BR do TSE inválido (0 seções)');
+  // o CDN do TSE às vezes serve uma cópia mais antiga: nunca andar para trás
+  if (prev && prev.status !== 'pre' && nat.secoesTot < prev.progress.secoesTot) { log(`↺ BR atrasado no cache do TSE (${nat.secoesTot} < ${prev.progress.secoesTot}) — mantendo o estado anterior`); return prev; }
   const counting = nat.secoesTot > 0;
   let ufObs = new Map<string, UnitObs>();
   let munInfo = { changed: 0, failed: 0 };
@@ -232,7 +254,7 @@ function interval(s: ForecastState | null): number {
 async function loop() {
   for (;;) {
     let s: ForecastState | null = null;
-    try { s = await tick(); } catch (e) { log('⚠ erro no ciclo:', (e as Error).message); }
+    try { s = await tick(); lastCycleOk = Date.now(); } catch (e) { log('⚠ erro no ciclo:', (e as Error).message); }
     await new Promise((r) => setTimeout(r, interval(s ?? prev)));
   }
 }
@@ -241,7 +263,11 @@ http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'no-store');
   if (req.url?.startsWith('/state.json') && prev) { res.setHeader('Content-Type', 'application/json'); res.end(publishable(prev)); return; }
-  if (req.url?.startsWith('/health')) { res.end(JSON.stringify({ ok: true, cycle, last: prev?.generatedAt })); return; }
+  if (req.url?.startsWith('/health')) {
+    const stale = lastCycleOk > 0 && Date.now() - lastCycleOk > 5 * 60000;
+    res.end(JSON.stringify({ ok: !stale, cycle, last: prev?.generatedAt, lastCycleOk: lastCycleOk ? new Date(lastCycleOk).toISOString() : null, lastPublishOk: lastPublishOk ? new Date(lastPublishOk).toISOString() : null, standby, role: ROLE }));
+    return;
+  }
   res.statusCode = 404; res.end('not found');
 }).on('error', (e) => log(`⚠ servidor local indisponível (${(e as Error).message}) — seguindo só com o Blob`)).listen(PORT, () => log(`🕹  worker no ar — http://localhost:${PORT}/state.json ${BLOB_TOKEN ? '· publicando no Vercel Blob' : '· (sem BLOB_READ_WRITE_TOKEN: só local)'}`));
 

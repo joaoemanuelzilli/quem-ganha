@@ -47,8 +47,10 @@ export class Power {
     // 100%/0% só quando a vitória é matemática; antes disso, no máximo ">99%"
     const certain = s.status === 'final' || s.forecast.call === 'mathematical';
     const fp = (x: number) => (!certain && x >= 0.995 ? '>99%' : !certain && x <= 0.005 ? '<1%' : fmtProb(x));
+    // os dois lados sempre somam 100 (Flávio = 100 − Lula arredondado)
+    const fpF = (y: number) => (!certain && y >= 0.995 ? '>99%' : !certain && y <= 0.005 ? '<1%' : Number.isFinite(y) ? `${100 - Math.round((1 - y) * 100)}%` : '—');
     tweenText(this.pl, p, fp);
-    tweenText(this.pf, 1 - p, fp);
+    tweenText(this.pf, 1 - p, fpF);
 
     const warming = !!s.forecast.warmingUp && s.status === 'counting';
     this.warm.hidden = !warming;

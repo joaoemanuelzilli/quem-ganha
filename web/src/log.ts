@@ -42,7 +42,7 @@ export class BattleLog {
       this.queue = [];
     }
     const fresh = evs.filter((e) => !this.seen.has(keyOf(e)));
-    const animate = !this.first && !reset && !reducedMotion() && fresh.length <= 6;
+    const animate = !this.first && !reset && !reducedMotion() && !document.hidden && fresh.length <= 6;
     // insere do mais antigo para o mais novo, no topo
     for (const e of [...fresh].reverse()) {
       this.seen.add(keyOf(e));
@@ -76,19 +76,26 @@ export class BattleLog {
   }
 
   private pump(): void {
+    if (document.hidden) {
+      // aba escondida: o navegador desacelera os timers — escreve tudo de uma vez
+      for (const j of this.queue) { j.li.querySelector('.tx')!.textContent = j.text; j.li.classList.remove('typing'); }
+      this.queue = [];
+      return;
+    }
     if (this.typing) return;
     const job = this.queue.shift();
     if (!job) return;
     this.typing = true;
     const tx = job.li.querySelector('.tx')!;
     job.li.classList.add('typing');
+    job.li.setAttribute('aria-busy', 'true');
     let i = 0;
     const per = Math.max(8, Math.min(28, 700 / job.text.length));
     const step = () => {
       i += 1;
       tx.textContent = job.text.slice(0, i);
-      if (i < job.text.length && job.li.isConnected) setTimeout(step, per);
-      else { tx.textContent = job.text; job.li.classList.remove('typing'); this.typing = false; this.pump(); }
+      if (i < job.text.length && job.li.isConnected && !document.hidden) setTimeout(step, per);
+      else { tx.textContent = job.text; job.li.classList.remove('typing'); job.li.removeAttribute('aria-busy'); this.typing = false; this.pump(); }
     };
     step();
   }

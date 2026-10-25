@@ -53,10 +53,12 @@ export interface TseResult {
   comp: number;
   validos: number; brancos: number; nulos: number;
   votes: Record<number, number>;   // nº do candidato → votos
+  finished: boolean;               // totalização encerrada (tf='s' ou and='f')
 }
 
 /** Converte o JSON "-u" do TSE (BR, UF ou município) em números. */
 export function parseResult(abr: string, j: any): TseResult {
+  if (!j || typeof j !== 'object') throw new Error(`JSON inválido do TSE (${abr})`);
   const votes: Record<number, number> = {};
   for (const carg of j.carg ?? []) {
     for (const agr of carg.agr ?? []) {
@@ -73,6 +75,7 @@ export function parseResult(abr: string, j: any): TseResult {
     comp: num(e.c),
     validos: num(v.vv), brancos: num(v.vb), nulos: num(v.tvn),
     votes,
+    finished: j.tf === 's' || j.and === 'f',
   };
 }
 

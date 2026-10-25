@@ -16,6 +16,8 @@ export interface National {
   dg: string; hg: string;
   secoes: number; secoesTot: number; aptos: number; aptosTot: number; comp: number;
   lula: number; flavio: number; brancos: number; nulos: number;
+  /** o TSE marcou a totalização como encerrada (tf='s' / and='f') */
+  finished?: boolean;
 }
 
 export interface BuildInput {
@@ -55,11 +57,16 @@ export function buildForecast(inp: BuildInput): { state: ForecastState; prepared
   const tr = trajectory(m, r, inp.curves, inp.now, start);
   const munMean = r.lulaQ.mean, munWin = r.winProbLula;
 
-  // ── COMBO: desloca a distribuição municipal na direção do modelo por UF (em logit) ──
+  // ── COMBO: MISTURA de cenários (fração w vem do modelo por UF). Quando os dois discordam,
+  //    a incerteza aumenta — nada de herdar o intervalo estreito de um deles.
   const w = inp.blend?.weight ?? 0;
   if (inp.blend && w > 0) {
-    const shift = w * (logit(inp.blend.uf.lulaQ.mean / 100) - logit(munMean / 100));
-    const d = r.finalLula.map((x) => 100 * invLogit(logit(x / 100) + shift));
+    const ufD = inp.blend.uf.finalLula, nU = Math.round(w * r.finalLula.length);
+    const d = Float64Array.from(r.finalLula, (x, k) => (k < nU && ufD.length ? ufD[k % ufD.length] : x));
+    for (const u of r.uf) {
+      const v = inp.blend.uf.uf.find((x) => x.uf === u.uf);
+      if (v) { u.projLula = (1 - w) * u.projLula + w * v.projLula; u.winProbLula = (1 - w) * u.winProbLula + w * v.winProbLula; }
+    }
     const s = Float64Array.from(d).sort();
     let mu = 0, wins = 0;
     for (const x of d) { mu += x; if (x > 50) wins++; }
@@ -94,17 +101,29 @@ export function buildForecast(inp: BuildInput): { state: ForecastState; prepared
   const validos = nat.lula + nat.flavio;
   const pct = nat.secoes > 0 ? (100 * nat.secoesTot) / nat.secoes : 0;
   const lulaPct = validos > 0 ? (100 * nat.lula) / validos : 0;
-  const status: ForecastState['status'] = pct >= 100 ? 'final' : nat.secoesTot > 0 ? 'counting' : 'pre';
+  const status: ForecastState['status'] = nat.secoesTot > 0 && (pct >= 100 || nat.finished) ? 'final' : nat.secoesTot > 0 ? 'counting' : 'pre';
+  if (status === 'final' && validos > 0) {
+    // fim de jogo: o número oficial manda (nada de diferença de arredondamento/municípios faltando)
+    r.lulaQ = { mean: lulaPct, p05: lulaPct, p25: lulaPct, p50: lulaPct, p75: lulaPct, p95: lulaPct };
+    r.winProbLula = nat.lula > nat.flavio ? 1 : nat.lula < nat.flavio ? 0 : 0.5;
+    r.projVotes = { lula: nat.lula, flavio: nat.flavio, validos, comp: nat.comp };
+    for (const x of r.methods) if (x.official) { x.lulaPct = lulaPct; x.winProbLula = r.winProbLula; }
+  }
 
   // ── chamada ──
   const wp = r.winProbLula;
   const leader: CandKey = wp >= 0.5 ? 'lula' : 'flavio';
   const pLeader = Math.max(wp, 1 - wp);
-  const remainingMax = r.maxRemainingValid;
+  // eleitores ainda não apurados no MESMO arquivo do placar (limite superior dos votos restantes)
+  const remainingMax = inp.national ? Math.max(0, nat.aptos - nat.aptosTot) : r.maxRemainingValid;
+  const pf = inp.prev?.forecast;
   let call: ForecastState['forecast']['call'] = 'none';
-  if (status !== 'pre' && Math.abs(nat.lula - nat.flavio) > remainingMax) call = 'mathematical';
+  if (status !== 'pre' && validos > 0 && Math.abs(nat.lula - nat.flavio) > remainingMax) call = 'mathematical';
   else if (status !== 'pre' && pct >= 1 && pLeader >= 0.99) call = 'projected';
+  // histerese: uma vez cravado, só "descrava" se a confiança cair abaixo de 95% (ou trocar de lado)
+  else if (status !== 'pre' && pf?.call === 'projected' && pf.leader === leader && pLeader >= 0.95) call = 'projected';
   else if (status !== 'pre' && pct >= 0.3 && pLeader >= 0.70) call = 'lean';
+  else if (status !== 'pre' && (pf?.call === 'lean' || pf?.call === 'projected') && pf.leader === leader && pLeader >= 0.65) call = 'lean';
   const finalLeader: CandKey = call === 'mathematical' ? (nat.lula > nat.flavio ? 'lula' : 'flavio') : leader;
   const prev = inp.prev ?? null;
   let calledAt: string | undefined;
@@ -135,7 +154,7 @@ export function buildForecast(inp: BuildInput): { state: ForecastState; prepared
   const mg = states.find((s) => s.uf === 'mg');
   let neL = 0, neV = 0, neCL = 0, neCV = 0, neSec = 0, neSecTot = 0, otherL = 0, otherV = 0, neT1l = 0, neT1f = 0;
   for (const u of r.uf) {
-    const projL = u.counted.lula + avgArr(u.remLula), projV = u.counted.validos + avgArr(u.remValid);
+    const projV = u.validosProj, projL = (u.projLula / 100) * projV;
     if (NE_UFS.includes(u.uf)) { neL += projL; neV += projV; neCL += u.counted.lula; neCV += u.counted.validos; neSec += u.counted.secoes; neSecTot += u.counted.secoesTot; }
     else { otherL += projL; otherV += projV; }
   }
@@ -174,18 +193,25 @@ export function buildForecast(inp: BuildInput): { state: ForecastState; prepared
   const push = (e: Omit<GameEvent, 't'>) => events.unshift({ t, ...e });
   if (prev) {
     const pp = prev.progress.pct;
-    if (prev.status === 'pre' && status !== 'pre') push({ kind: 'info', text: '▶ ROUND 2 — FIGHT! Primeiros boletins de urna chegando ao TSE' });
-    for (const ms of [0.5, 1, 2, 5, 10, 25, 50, 75, 90, 95, 99, 100])
-      if (pp < ms && pct >= ms) push({ kind: 'milestone', text: `⏱ ${String(ms).replace('.', ',')}% APURADO — Lula ${pctf(lulaPct)}% × Flávio ${pctf(100 - lulaPct)}% · previsão final Lula ${pctf(r.lulaQ.mean)}%` });
+    const has = (prefix: string) => events.some((e) => e.text.startsWith(prefix));
+    const lastSide = () => events.find((e) => e.kind === 'swing' || e.kind === 'call')?.who;
+    if (prev.status === 'pre' && status !== 'pre' && !has('▶ ROUND 2')) push({ kind: 'info', text: '▶ ROUND 2 — FIGHT! Primeiros boletins de urna chegando ao TSE' });
+    for (const ms of [0.5, 1, 2, 5, 10, 25, 50, 75, 90, 95, 99, 100]) {
+      const label = `⏱ ${String(ms).replace('.', ',')}% APURADO`;
+      if (pp < ms && pct >= ms && !has(label)) push({ kind: 'milestone', text: `${label} — Lula ${pctf(lulaPct)}% × Flávio ${pctf(100 - lulaPct)}% · previsão final Lula ${pctf(r.lulaQ.mean)}%` });
+    }
     const prevLead = prev.current.leader, curLead: CandKey | null = validos > 0 ? (nat.lula >= nat.flavio ? 'lula' : 'flavio') : null;
     if (prevLead && curLead && prevLead !== curLead) push({ kind: 'lead', who: curLead, text: `⚔ VIRADA NA APURAÇÃO! ${nameOf(curLead)} passa à frente (${pctf(curLead === 'lula' ? lulaPct : 100 - lulaPct)}%)` });
-    if (prev.status !== 'pre' && prev.forecast.leader !== leader && call !== 'mathematical') push({ kind: 'swing', who: leader, text: `🔮 O MODELO MUDOU DE LADO: agora ${nameOf(leader)} é favorito (${(100 * pLeader).toFixed(0)}%)` });
-    const rank = { none: 0, lean: 1, projected: 2, mathematical: 3 } as const;
-    if (rank[call] > rank[prev.forecast.call] && call !== 'lean') push({ kind: 'call', who: finalLeader, text: call === 'mathematical' ? `🏆 ${nameOf(finalLeader)} VENCEU — virada matematicamente impossível` : `🏆 VITÓRIA PROJETADA: ${nameOf(finalLeader)} (${(100 * pLeader).toFixed(1)}% de chance) com ${pctf(pct)}% apurado` });
-    else if (call === 'lean' && prev.forecast.call === 'none') push({ kind: 'swing', who: leader, text: `📈 VANTAGEM ${nameOf(leader)}: ${(100 * pLeader).toFixed(0)}% de chance segundo o modelo` });
+    // o modelo mudou de lado: só anuncia com convicção mínima e se for diferente do último lado anunciado
+    const ls = lastSide();
+    if (prev.status !== 'pre' && call !== 'mathematical' && pLeader >= 0.6 && ls && ls !== leader) push({ kind: 'swing', who: leader, text: `🔮 O MODELO MUDOU DE LADO: agora ${nameOf(leader)} é favorito (${(100 * pLeader).toFixed(0)}%)` });
+    const lastCallWho = events.find((e) => e.kind === 'call')?.who;
+    if (call === 'mathematical' && !events.some((e) => e.kind === 'call' && e.text.includes('VENCEU'))) push({ kind: 'call', who: finalLeader, text: `🏆 ${nameOf(finalLeader)} VENCEU — virada matematicamente impossível` });
+    else if (call === 'projected' && lastCallWho !== finalLeader) push({ kind: 'call', who: finalLeader, text: `🏆 VITÓRIA PROJETADA: ${nameOf(finalLeader)} (${(100 * pLeader).toFixed(1)}% de chance) com ${pctf(pct)}% apurado` });
+    else if (call === 'lean' && lastSide() !== leader) push({ kind: 'swing', who: leader, text: `📈 VANTAGEM ${nameOf(leader)}: ${(100 * pLeader).toFixed(0)}% de chance segundo o modelo` });
     for (const s of states) {
       const ps = prev.states.find((x) => x.uf === s.uf);
-      if (ps && ps.pct < 100 && s.pct >= 100 && s.lulaPct !== null) {
+      if (ps && ps.pct < 100 && s.pct >= 100 && s.lulaPct !== null && !has(`🗺 ${s.uf.toUpperCase()} 100%`)) {
         const w: CandKey = s.lulaPct >= 50 ? 'lula' : 'flavio';
         push({ kind: 'state', who: w, text: `🗺 ${s.uf.toUpperCase()} 100% apurado: ${nameOf(w)} ${pctf(w === 'lula' ? s.lulaPct : 100 - s.lulaPct)}%` });
       }
@@ -210,7 +236,7 @@ export function buildForecast(inp: BuildInput): { state: ForecastState; prepared
       projVotes: r.projVotes, turnoutPct: r.turnoutPct,
       swingVsT1: r.lulaQ.mean - t1Two,
       methods: r.methods,
-      trajectory: tr.points, etaFinish: tr.eta,
+      trajectory: tr.points, etaFinish: status === 'final' ? null : tr.eta,
       units: m.level, unitsReporting: r.unitsReporting, unitsTotal: m.n,
       warmingUp: status === 'counting' && pct < 1,
     },

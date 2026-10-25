@@ -105,7 +105,7 @@ export class Hud {
     const c = s.current;
     this.demoClock = meta.mode === 'demo' ? timeHMS(s.generatedAt) : null;
     this.tickClock();
-    tweenText(this.timerN, s.progress.pct, (x) => (x >= 99.95 ? '100' : fmtNum(x, 1)));
+    tweenText(this.timerN, Number.isFinite(s.progress?.pct) ? s.progress.pct : 0, (x) => (x >= 100 ? '100' : fmtNum(Math.floor(x * 10) / 10, 1)));
     const rows: [CandKey, number, number][] = [
       ['lula', c.lulaPct, c.lula],
       ['flavio', c.flavioPct, c.flavio],

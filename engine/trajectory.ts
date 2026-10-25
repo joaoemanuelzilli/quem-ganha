@@ -60,7 +60,8 @@ export function trajectory(m: PreparedModel, r: RunResult, curves: Curves, now: 
   const points: TrajectoryPoint[] = [];
   let eta: string | null = null;
   const lulaAt = new Float64Array(D);
-  for (let step = 0; step <= 600; step += 2) {
+  const maxStep = Math.ceil(720 / pace);
+  for (let step = 0; step <= maxStep; step += 2) {
     // minutos "históricos" avançados
     const adv = step * pace;
     let sec = natSecTot, L = r.counted.lula, V = r.counted.validos;
@@ -93,7 +94,7 @@ export function trajectory(m: PreparedModel, r: RunResult, curves: Curves, now: 
     if (pct >= 99.5 && !eta) eta = t;
     if (pct >= 99.95) break;
   }
-  return { points, eta };
+  return { points, eta: natFrac >= 1 ? null : eta };
 }
 
 const avg = (a: Float64Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i]; return a.length ? s / a.length : 0; };

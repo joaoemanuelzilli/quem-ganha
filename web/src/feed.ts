@@ -28,7 +28,7 @@ export interface FeedMeta {
 
 export const WORKER_URL = 'https://u0jc3e2rvtfdcwiu.public.blob.vercel-storage.com/live/state.json';
 const LOCAL_URL = 'http://localhost:8787/state.json';
-const STALE_MS = 150_000;
+const STALE_MS = 240_000;   // medido a partir de quando ESTE navegador viu o dado novo (não do relógio do visitante)
 const HIST_KEY = 'qg-browser-history-v1';
 
 const params = new URLSearchParams(location.search);
@@ -45,10 +45,13 @@ export function startFeed(onState: (s: ForecastState, meta: FeedMeta) => void): 
 
   let worker: ForecastState | null = null;
   let workerAt = 0;
+  let workerSeenAt = 0;
   let browser: ForecastState | null = null;
   let browserAt = 0;
   let lastErr: string | undefined;
   let stopped = false;
+  const lastObs = new Map<string, UnitObs>();
+  let ufFail = false;
 
   // ── motor no navegador (nível UF) ──
   const ufPriors = unpack(ufPacked as never);
@@ -63,14 +66,20 @@ export function startFeed(onState: (s: ForecastState, meta: FeedMeta) => void): 
     // só aceita pontos bem formados (proteção contra dados corrompidos)
     if (Array.isArray(arr)) savedHist = arr.filter((x): x is Hist =>
       !!x && typeof x.t === 'string' && [x.pct, x.lulaPct, x.projLulaPct, x.projLo, x.projHi, x.winProbLula].every((v) => typeof v === 'number' && Number.isFinite(v))
-      && x.pct >= 0 && x.pct <= 100 && x.lulaPct >= 0 && x.lulaPct <= 100 && x.winProbLula >= 0 && x.winProbLula <= 1);
+      && x.pct >= 0 && x.pct <= 100 && x.lulaPct >= 0 && x.lulaPct <= 100 && x.winProbLula >= 0 && x.winProbLula <= 1
+      && Date.parse(x.t) >= COUNT_START.getTime() - 3_600_000);
   } catch { /* sem storage */ }
 
-  /** histórico mais rico do worker (mesmo atrasado) + pontos do navegador depois dele */
+  /** histórico e eventos mais ricos do worker (mesmo atrasado) + o que o navegador viu depois */
   const withWorkerHistory = (b: ForecastState): ForecastState => {
     if (!worker?.history?.length) return b;
     const last = worker.history[worker.history.length - 1];
-    return { ...b, history: [...worker.history, ...b.history.filter((h) => h.t > last.t && h.pct > last.pct)] };
+    const newestW = worker.events?.[0]?.t ?? '';
+    return {
+      ...b,
+      history: [...worker.history, ...b.history.filter((h) => h.t > last.t && h.pct > last.pct)],
+      events: dedupeEvents([...b.events.filter((e) => e.t > newestW), ...(worker.events ?? [])]),
+    };
   };
 
   /** previsão municipal do worker + placar mais fresco do navegador */
@@ -85,7 +94,7 @@ export function startFeed(onState: (s: ForecastState, meta: FeedMeta) => void): 
       ...w,
       status: b.status === 'final' ? 'final' : w.status === 'pre' ? b.status : w.status,
       tse: b.tse, progress: b.progress, current: b.current,
-      states: w.states.map((st) => { const bs = b.states.find((x) => x.uf === st.uf); return bs ? { ...st, pct: bs.pct, lulaPct: bs.lulaPct } : st; }),
+      states: w.states.map((st) => { const bs = b.states.find((x) => x.uf === st.uf); return bs && bs.pct >= st.pct ? { ...st, pct: bs.pct, lulaPct: bs.lulaPct } : st; }),
       history: [...w.history, ...extra],
       forecast: { ...f, trajectory: traj.length ? traj : f.trajectory.slice(-1) },
     };
@@ -93,13 +102,15 @@ export function startFeed(onState: (s: ForecastState, meta: FeedMeta) => void): 
 
   const emit = () => {
     const now = Date.now();
-    const w = worker && now - new Date(worker.generatedAt).getTime() < STALE_MS ? worker : null;
+    const w = worker && now - workerSeenAt < STALE_MS ? worker : null;
     const b = browser?.progress ? browser : null;
+    const ahead = (a: ForecastState, c: ForecastState) => (a.status !== 'pre' && c.status === 'pre') || a.progress.secoesTot > c.progress.secoesTot;
     let s: ForecastState | null = null;
     let mode: FeedMeta['mode'] = 'browser';
     if (w && b && w.status === 'pre' && b.status !== 'pre') s = withWorkerHistory(b);          // a apuração começou e o worker ainda não propagou
     else if (w && b && b.progress.secoesTot > w.progress.secoesTot) { s = overlay(w, b); mode = 'worker'; }
     else if (w) { s = w; mode = 'worker'; }
+    else if (b && worker && ahead(worker, b)) { s = worker; mode = 'worker'; }                // worker parado, mas o navegador está ainda mais atrás
     else if (b) s = withWorkerHistory(b);
     else if (worker) { s = worker; mode = 'worker'; }
     if (!s) return;
@@ -110,7 +121,14 @@ export function startFeed(onState: (s: ForecastState, meta: FeedMeta) => void): 
   async function pollWorker() {
     try {
       const r = await fetch(`${workerUrl}?t=${Math.floor(Date.now() / 10000)}`, { cache: 'no-store' });
-      if (r.ok) { const s = (await r.json()) as ForecastState; if (!worker || s.generatedAt >= worker.generatedAt) { worker = s; workerAt = Date.now(); } }
+      if (r.ok) {
+        const s = (await r.json()) as ForecastState;
+        const regress = worker && worker.status !== 'pre' && s.status === 'pre';
+        if (s?.progress && s.forecast && (!worker || (s.generatedAt >= worker.generatedAt && !regress))) {
+          if (!worker || s.generatedAt > worker.generatedAt) workerSeenAt = Date.now();
+          worker = s; workerAt = Date.now();
+        }
+      }
     } catch (e) { lastErr = `worker: ${(e as Error).message}`; }
     emit();
   }
@@ -119,16 +137,21 @@ export function startFeed(onState: (s: ForecastState, meta: FeedMeta) => void): 
     try {
       const nearStart = Date.now() > COUNT_START.getTime() - 10 * 60000;
       const br = parseResult('br', await fetchJson(urls.result('br', ELE_T2)));
-      const national: National = { dg: br.dg, hg: br.hg, secoes: br.secoes, secoesTot: br.secoesTot, aptos: br.aptos, aptosTot: br.aptosTot, comp: br.comp, lula: br.votes[NR_LULA] ?? 0, flavio: br.votes[NR_FLAVIO] ?? 0, brancos: br.brancos, nulos: br.nulos };
+      const national: National = { dg: br.dg, hg: br.hg, secoes: br.secoes, secoesTot: br.secoesTot, aptos: br.aptos, aptosTot: br.aptosTot, comp: br.comp, lula: br.votes[NR_LULA] ?? 0, flavio: br.votes[NR_FLAVIO] ?? 0, brancos: br.brancos, nulos: br.nulos, finished: br.finished };
+      if (br.secoes === 0) throw new Error('arquivo BR inválido');
+      // cópia mais antiga no CDN do TSE: ignora (o placar nunca anda para trás)
+      if (browser?.progress && browser.status !== 'pre' && br.secoesTot < browser.progress.secoesTot) { browserAt = Date.now(); emit(); return; }
       // nada mudou no TSE desde a última leitura → não refaz a conta
-      if (browser?.progress && browser.tse.hg === br.hg && browser.tse.dg === br.dg && browser.progress.secoesTot === br.secoesTot) { browserAt = Date.now(); emit(); return; }
+      if (!ufFail && browser?.progress && browser.tse.hg === br.hg && browser.tse.dg === br.dg && browser.progress.secoesTot === br.secoesTot) { browserAt = Date.now(); emit(); return; }
       const obs = new Map<string, UnitObs>();
       if (br.secoesTot > 0 || nearStart) {
+        ufFail = false;
         await Promise.all(UFS.map(async (uf) => {
-          try { obs.set(uf, resultToObs(uf, parseResult(uf, await fetchJson(urls.result(uf, ELE_T2))))); } catch { /* UF falhou neste ciclo */ }
+          try { const o = resultToObs(uf, parseResult(uf, await fetchJson(urls.result(uf, ELE_T2)))); obs.set(uf, o); lastObs.set(uf, o); }
+          catch { ufFail = true; const o = lastObs.get(uf); if (o) obs.set(uf, o); }
         }));
       }
-      const { state } = buildForecast({ priors: ufPriors, level: 'uf', params: p, prepared, obs, national, curves, now: new Date(), source: 'browser', prev: browser ?? worker, priorSource: livePrior.source, scores: scores as never });
+      const { state } = buildForecast({ priors: ufPriors, level: 'uf', params: p, prepared, obs, national, curves, now: new Date(), source: 'browser', prev: browser, priorSource: livePrior.source, scores: scores as never });
       { const b = state.forecast.methods.find((x) => x.id === 'bayes'); if (b) { b.id = 'bayes-uf'; b.name = 'BAYES POR ESTADO'; b.desc = 'Modelo bayesiano com os totais das 27 UFs + exterior, rodando no seu navegador (plano B)'; const sc = (scores as unknown as Record<string, { mae1: number | null; mae5: number | null }>)['bayes-uf']; b.mae1 = sc?.mae1; b.mae5 = sc?.mae5; } }
       if (!browser && savedHist.length && state.status !== 'pre') {
         // recarregou a página: recupera o histórico que este navegador já tinha visto
@@ -188,4 +211,20 @@ function safeTestWorker(raw: string | null): string | null {
     const u = new URL(raw);
     return (u.protocol === 'http:' || u.protocol === 'https:') && LOCAL_HOSTS.has(u.hostname) ? u.toString() : null;
   } catch { return null; }
+}
+
+/** remove eventos repetidos (mesmo significado em até 10 min) — acontece ao alternar worker ↔ navegador */
+function dedupeEvents(evs: ForecastState['events']): ForecastState['events'] {
+  const sorted = [...evs].sort((a, b) => (a.t < b.t ? 1 : a.t > b.t ? -1 : 0));
+  const seen = new Map<string, number>();
+  const out: ForecastState['events'] = [];
+  for (const e of sorted) {
+    const key = `${e.kind}|${e.who ?? ''}|${e.text.split(/ — |[(:]/)[0].trim()}`;
+    const t = Date.parse(e.t);
+    const prev = seen.get(key);
+    if (prev !== undefined && Math.abs(prev - t) < 10 * 60000) continue;
+    seen.set(key, t);
+    out.push(e);
+  }
+  return out.slice(0, 80);
 }

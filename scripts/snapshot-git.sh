@@ -5,6 +5,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
+# nunca pede senha, desiste de conexão travada, uma execução por vez
+export GIT_TERMINAL_PROMPT=0 GIT_HTTP_LOW_SPEED_LIMIT=1000 GIT_HTTP_LOW_SPEED_TIME=20
+mkdir -p "$ROOT/live"
+exec 9>"$ROOT/live/.snapshot.lock"
+flock -n 9 || exit 0
+git worktree prune 2>/dev/null || true
 WT="$ROOT/../quem-ganha-ao-vivo"
 if [ ! -d "$WT/.git" ] && [ ! -f "$WT/.git" ]; then
   if git ls-remote --exit-code --heads origin ao-vivo >/dev/null 2>&1; then
@@ -16,7 +22,10 @@ if [ ! -d "$WT/.git" ] && [ ! -f "$WT/.git" ]; then
 fi
 [ -f "$ROOT/live/state.public.json" ] || exit 0
 # parte sempre do que já está no GitHub (a nuvem e o notebook podem se revezar)
-git -C "$WT" fetch -q origin ao-vivo 2>/dev/null && git -C "$WT" reset -q --hard origin/ao-vivo || true
+git -C "$WT" rebase --abort 2>/dev/null || true
+rm -f "$(git -C "$WT" rev-parse --git-dir 2>/dev/null)/index.lock" 2>/dev/null || true
+git -C "$WT" checkout -q ao-vivo 2>/dev/null || true
+timeout 60 git -C "$WT" fetch -q origin ao-vivo 2>/dev/null && git -C "$WT" reset -q --hard origin/ao-vivo || true
 mkdir -p "$WT/snapshots"
 TS=$(TZ=America/Sao_Paulo date +%Y%m%d-%H%M)
 cp "$ROOT/live/state.public.json" "$WT/snapshots/$TS.json"
@@ -32,4 +41,6 @@ if [ ! -f README.md ]; then
 fi
 git add -A
 git commit -q -m "$MSG" || exit 0
-git push -q -u origin ao-vivo || { git fetch -q origin ao-vivo && git rebase -q -X theirs origin/ao-vivo && git push -q -u origin ao-vivo; }
+timeout 90 git push -q origin HEAD:ao-vivo \
+  || { timeout 60 git fetch -q origin ao-vivo && git rebase -q -X theirs origin/ao-vivo && timeout 90 git push -q origin HEAD:ao-vivo; } \
+  || { git rebase --abort 2>/dev/null; exit 1; }

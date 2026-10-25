@@ -119,6 +119,9 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-v
 .mode-badge[data-mode='demo'] { background: var(--gold); }
 .mode-badge[data-mode='worker'], .mode-badge[data-mode='browser'] { background: var(--flav-l); }
 .mode-badge[data-mode='worker']::before, .mode-badge[data-mode='browser']::before { content: '● '; color: var(--lula); }
+.mode-badge[data-mode='stale'] { background: #ff9f1c; color: #05061a; }
+@media (prefers-reduced-motion: no-preference) { .mode-badge[data-mode='stale'] { animation: qg-stale 1s steps(1) infinite; } }
+@keyframes qg-stale { 50% { opacity: .45; } }
 .btn-sound {
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
   background: var(--panel-2); border: 0; padding: 7px 10px; font-family: var(--f-hud); font-size: 8px; color: var(--ink-2);

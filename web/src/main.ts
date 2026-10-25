@@ -52,17 +52,19 @@ const MODE_TXT: Record<FeedMeta['mode'], string> = { demo: 'MODO DEMO', worker: 
 
 function paintTop(s: ForecastState, meta: FeedMeta): void {
   const badge = $('mode-badge');
-  badge.textContent = MODE_TXT[meta.mode] ?? meta.mode;
+  const shown: FeedMeta['mode'] = s.status === 'pre' && meta.mode !== 'demo' ? 'pre' : meta.mode;
+  badge.textContent = MODE_TXT[shown] ?? shown;
   badge.title = meta.mode === 'demo' ? 'Apuração simulada para demonstração — não são dados reais' : meta.mode === 'pre' ? 'A apuração ainda não começou' : 'Dados reais do TSE';
-  badge.dataset.mode = meta.mode;
+  badge.dataset.mode = shown;
   const st = $('stage');
   const n = st.querySelector('.stage-n')!;
   const name = st.querySelector('.stage-name')!;
   if (s.status === 'pre') { n.textContent = 'STAGE 0'; name.textContent = 'Tela de título'; return; }
   if (s.status === 'final') { n.textContent = 'FIM DE JOGO'; name.textContent = 'Apuração encerrada'; return; }
-  const k = Math.min(9, Math.floor(s.progress.pct / 10));
+  const pct = Number.isFinite(s.progress?.pct) ? s.progress.pct : 0;
+  const k = Math.max(0, Math.min(9, Math.floor(pct / 10)));
   n.textContent = `STAGE ${k + 1}`;
-  name.textContent = `${STAGES[k]} — ${fmtNum(s.progress.pct, 1)}% apurado`;
+  name.textContent = `${STAGES[k]} — ${pct >= 100 ? '100' : fmtNum(Math.floor(pct * 10) / 10, 1)}% apurado`;
 }
 
 const footer = $('footer');
@@ -84,16 +86,20 @@ function paintFooter(s: ForecastState, meta: FeedMeta): void {
   const src = ff('src');
   src.dataset.mode = meta.mode;
   src.textContent = meta.mode === 'demo' ? 'FONTE: DEMO (SIMULADA)' : meta.mode === 'worker' ? 'FONTE: WORKER' : meta.mode === 'browser' ? 'FONTE: NAVEGADOR' : 'FONTE: PRÉ-JOGO';
-  if (meta.error) src.title = meta.error;
+  src.title = meta.error ?? '';
   lastOk = meta.lastOk;
+  lastMode = meta.mode;
   ff('upd').textContent = timeHMS(meta.lastOk);
   ff('tse').textContent = s.tse?.hg ? `${s.tse.dg ?? ''} ${s.tse.hg}`.trim() : '—';
   const demo = ff('demo') as HTMLAnchorElement;
   if (meta.mode === 'demo') { demo.textContent = '■ Sair da demo'; demo.href = location.pathname; }
   else { demo.textContent = '▶ Jogar demo'; demo.href = '?demo=1'; }
 }
+let lastMode: FeedMeta['mode'] | null = null;
 setInterval(() => {
   if (!lastOk) return;
+  const badge = $('mode-badge');
+  if (lastMode !== 'demo' && Date.now() - lastOk > 120_000) { badge.textContent = 'RECONECTANDO…'; badge.dataset.mode = 'stale'; badge.title = 'Sem dados novos há mais de 2 minutos — tentando de novo automaticamente'; }
   const s = Math.max(0, Math.round((Date.now() - lastOk) / 1000));
   ff('ago').textContent = s < 5 ? '(agora)' : `(há ${s < 60 ? `${s} s` : `${Math.floor(s / 60)} min`})`;
 }, 1000);
@@ -102,10 +108,11 @@ setInterval(() => {
 let prev: ForecastState | null = null;
 let celebrated = '';
 
-function moments(s: ForecastState): void {
+function moments(s: ForecastState, meta: FeedMeta): void {
   const p = prev;
   if (s.status === 'pre') return;
-  const restarted = !p || p.status === 'pre' || s.progress.pct + 5 < p.progress.pct;
+  // queda grande de % só significa reinício na DEMO (ao vivo pode ser só troca de fonte)
+  const restarted = !p || p.status === 'pre' || (meta.mode === 'demo' && s.progress.pct + 5 < p.progress.pct);
   if (restarted && s.status === 'counting' && s.progress.pct < 5) {
     roundSplash('ROUND 1', 'FIGHT!');
     sfx.fight();
@@ -129,6 +136,7 @@ function moments(s: ForecastState): void {
 }
 
 // ---------------------------------------------------------------- render
+const safe = (name: string, f: () => void) => { try { f(); } catch (e) { console.error(`[quem-ganha] painel ${name}`, e); } };
 function onState(s: ForecastState, meta: FeedMeta): void {
   try {
     app.classList.remove('is-loading');
@@ -143,15 +151,16 @@ function onState(s: ForecastState, meta: FeedMeta): void {
       pregame.hide();
       game.hidden = false;
       if (!polyStop) polyStop = mountPoly($('poly'));
-      hud.update(s, meta);
-      arena.update(s);
-      power.update(s);
-      proj.update(s);
-      methods.update(s);
-      map.update(s);
-      thermo.update(s);
-      log.update(s);
-      moments(s);
+      // cada painel isolado: um erro num deles nunca congela os outros
+      safe('hud', () => hud.update(s, meta));
+      safe('arena', () => arena.update(s));
+      safe('power', () => power.update(s));
+      safe('proj', () => proj.update(s));
+      safe('methods', () => methods.update(s));
+      safe('map', () => map.update(s));
+      safe('thermo', () => thermo.update(s));
+      safe('log', () => log.update(s));
+      safe('moments', () => moments(s, meta));
       const c = s.current;
       document.title = c.validos > 0
         ? `${fmtNum(c.lulaPct, 1)}% LULA × FLÁVIO ${fmtNum(c.flavioPct, 1)}% · ${fmtNum(s.progress.pct, 0)}% apurado — QUEM GANHA?`
