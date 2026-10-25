@@ -30,7 +30,8 @@
     "sigmaZetaUF": 0.04914186004292799,
     "muLate": 0.045,
     "turnoutK": 3000,
-    "turnoutSd": 0.012
+    "turnoutSd": 0.012,
+    "warmup": 0.01
   },
   "uf": {
     "alpha": 0.05,
@@ -45,6 +46,7 @@
     "sigmaZetaUF": 0.057737907040811436,
     "muLate": 0.045,
     "turnoutK": 200000,
-    "turnoutSd": 0.012
+    "turnoutSd": 0.012,
+    "warmup": 0.01
   }
 }

@@ -1,8 +1,8 @@
 // Monta o ForecastState (o que o dashboard desenha) a partir do ajuste do modelo.
 import { UF_NAMES } from './tse';
-import { prepare, run, type ModelParams, type PreparedModel, type RunResult } from './model';
+import { NE_UFS, prepare, run, type ModelParams, type PreparedModel, type RunResult } from './model';
 import { trajectory, type Curves } from './trajectory';
-import type { CandKey, Candidate, ForecastState, GameEvent, HistoryPoint, StateRow, UnitObs, UnitPrior } from './types';
+import type { CandKey, Candidate, ForecastState, GameEvent, HistoryPoint, StateRow, Thermometers, UnitObs, UnitPrior } from './types';
 
 export const CANDIDATES: Candidate[] = [
   { key: 'lula', nr: 13, name: 'LULA', fullName: 'Luiz Inácio Lula da Silva', party: 'PT', color: '#e8222e' },
@@ -83,6 +83,33 @@ export function buildForecast(inp: BuildInput): { state: ForecastState; prepared
 
   let t1l = 0, t1f = 0;
   for (const p of inp.priors) { t1l += p.t1.lula; t1f += p.t1.flavio; }
+
+  // ── termômetros (Minas e Nordeste) ──
+  const meth = Object.fromEntries(r.methods.map((x) => [x.id, x.lulaPct]));
+  const mg = states.find((s) => s.uf === 'mg');
+  let neL = 0, neV = 0, neCL = 0, neCV = 0, neSec = 0, neSecTot = 0, otherL = 0, otherV = 0, neT1l = 0, neT1f = 0;
+  for (const u of r.uf) {
+    const projL = u.counted.lula + avgArr(u.remLula), projV = u.counted.validos + avgArr(u.remValid);
+    if (NE_UFS.includes(u.uf)) { neL += projL; neV += projV; neCL += u.counted.lula; neCV += u.counted.validos; neSec += u.counted.secoes; neSecTot += u.counted.secoesTot; }
+    else { otherL += projL; otherV += projV; }
+  }
+  for (const p of inp.priors) if (NE_UFS.includes(p.uf)) { neT1l += p.t1.lula; neT1f += p.t1.flavio; }
+  const thermometers: Thermometers | undefined = mg ? {
+    minas: {
+      pct: mg.pct, lulaPct: mg.lulaPct, projLulaPct: mg.projLulaPct, winProbLula: mg.winProbLula,
+      leader: mg.projLulaPct >= 50 ? 'lula' : 'flavio',
+      record: 'Quem venceu em MG venceu o Brasil em todos os 2º turnos desde 1989 (e no 1º turno de 2026)',
+      impliedNationalLula: meth.minas ?? null,
+    },
+    nordeste: {
+      pct: neSec > 0 ? (100 * neSecTot) / neSec : 0,
+      lulaPct: neCV > 0 ? (100 * neCL) / neCV : null,
+      projLulaPct: neV > 0 ? (100 * neL) / neV : 0,
+      neededLulaPct: neV > 0 ? (100 * (0.5 * (neV + otherV) - otherL)) / neV : 50,
+      t1LulaPct: (100 * neT1l) / Math.max(1, neT1l + neT1f),
+      impliedNationalLula: meth.nordeste ?? null,
+    },
+  } : undefined;
   const t1Two = (100 * t1l) / Math.max(1, t1l + t1f);
 
   // ── histórico ──
@@ -139,9 +166,13 @@ export function buildForecast(inp: BuildInput): { state: ForecastState; prepared
       methods: r.methods,
       trajectory: tr.points, etaFinish: tr.eta,
       units: m.level, unitsReporting: r.unitsReporting, unitsTotal: m.n,
+      warmingUp: status === 'counting' && pct < 1,
     },
     prior: { lulaPct: inp.params.priorLula ?? t1Two, sd: inp.params.priorSd, source: inp.priorSource ?? 'Média das pesquisas finais + correção do viés histórico' },
+    thermometers,
     history, states, events,
   };
   return { state, prepared: m, result: r };
 }
+
+function avgArr(a: Float64Array): number { let s = 0; for (let i = 0; i < a.length; i++) s += a[i]; return a.length ? s / a.length : 0; }

@@ -111,17 +111,17 @@ Em cada uma, o modelo vê o snapshot exato que a API mostraria com 0,25%, 0,5%, 
 <p align="center"><img src="docs/img/highscores.svg" width="100%" alt="Erro médio por % apurado: Bayes vs outros métodos"></p>
 
 <!--HIGHSCORES-->
-> 🏆 **Com 1% das urnas apuradas**, o modelo erra o resultado final em média **0,98 ponto** nas 15 apurações (o placar da TV erra **5,03**). Acertou o vencedor em **100%** dos casos. Nas **presidenciais**, o erro é de **0,69 ponto com 1%** e **0,25 com 5%**.
+> 🏆 **Com 1% das urnas apuradas**, o modelo erra o resultado final em média **1,00 ponto** nas 15 apurações (o placar da TV erra **5,03**). Acertou o vencedor em **100%** dos casos. Nas **presidenciais**, o erro é de **0,76 ponto com 1%** e **0,25 com 5%**.
 
 **🎮 Presidenciais (2022 1T, 2022 2T, 2026 1T)** — erro médio absoluto em pontos percentuais do resultado final:
 
 | % apurado | 🧠 **BAYES** | swing uniforme | projeção por UF | placar cru (TV) | intervalo 90% cobre | acertou vencedor | P(vencedor certo) |
 |---:|---:|---:|---:|---:|---:|---:|---:|
-| **0,25%** | **1,36 🥇** | 2,71 | 1,87 | 4,36 | 67% | 67% | 67% |
-| **0,5%** | **0,81** | 1,66 | 0,79 🥇 | 4,48 | 100% | 100% | 83% |
-| **1%** | **0,69 🥇** | 0,75 | 1,13 | 5,44 | 67% | 100% | 97% |
-| **2%** | **0,33 🥇** | 0,74 | 1,42 | 5,65 | 100% | 100% | 99% |
-| **3%** | **0,33 🥇** | 0,70 | 1,62 | 5,23 | 100% | 100% | 100% |
+| **0,25%** | **1,28 🥇** | 2,71 | 1,87 | 4,36 | 67% | 67% | 66% |
+| **0,5%** | **1,10** | 1,66 | 0,79 🥇 | 4,48 | 100% | 67% | 81% |
+| **1%** | **0,76** | 0,75 🥇 | 1,13 | 5,44 | 67% | 100% | 97% |
+| **2%** | **0,36 🥇** | 0,74 | 1,42 | 5,65 | 100% | 100% | 99% |
+| **3%** | **0,34 🥇** | 0,70 | 1,62 | 5,23 | 100% | 100% | 100% |
 | **5%** | **0,25 🥇** | 0,72 | 1,98 | 4,85 | 100% | 100% | 100% |
 | **10%** | **0,25 🥇** | 0,90 | 1,74 | 4,44 | 100% | 100% | 100% |
 | **20%** | **0,27 🥇** | 0,97 | 1,69 | 4,14 | 100% | 100% | 100% |
@@ -134,13 +134,13 @@ Em cada uma, o modelo vê o snapshot exato que a API mostraria com 0,25%, 0,5%, 
 
 | % apurado | 🧠 **BAYES** | swing uniforme | projeção por UF | placar cru (TV) | intervalo 90% cobre | acertou vencedor | P(vencedor certo) |
 |---:|---:|---:|---:|---:|---:|---:|---:|
-| **0,25%** | **1,69 🥇** | 4,25 | 5,49 | 5,99 | 87% | 87% | 85% |
-| **0,5%** | **1,36 🥇** | 3,93 | 5,08 | 5,82 | 93% | 93% | 88% |
-| **1%** | **0,98 🥇** | 3,18 | 4,17 | 5,03 | 87% | 100% | 95% |
+| **0,25%** | **2,08 🥇** | 4,25 | 5,49 | 5,99 | 80% | 87% | 82% |
+| **0,5%** | **1,44 🥇** | 3,93 | 5,08 | 5,82 | 87% | 87% | 87% |
+| **1%** | **1,00 🥇** | 3,18 | 4,17 | 5,03 | 87% | 100% | 95% |
 | **2%** | **1,19 🥇** | 2,84 | 3,79 | 4,63 | 93% | 93% | 91% |
 | **3%** | **1,31 🥇** | 2,78 | 3,64 | 4,36 | 100% | 93% | 93% |
 | **5%** | **0,86 🥇** | 2,51 | 3,51 | 4,08 | 100% | 100% | 94% |
-| **10%** | **0,76 🥇** | 1,85 | 2,82 | 3,36 | 93% | 93% | 93% |
+| **10%** | **0,75 🥇** | 1,85 | 2,82 | 3,36 | 93% | 93% | 93% |
 | **20%** | **0,64 🥇** | 1,51 | 2,43 | 2,92 | 100% | 100% | 98% |
 | **30%** | **0,55 🥇** | 1,19 | 2,02 | 2,46 | 93% | 100% | 99% |
 | **50%** | **0,49 🥇** | 0,89 | 1,40 | 1,74 | 87% | 100% | 100% |
@@ -149,13 +149,34 @@ Em cada uma, o modelo vê o snapshot exato que a API mostraria com 0,25%, 0,5%, 
 
 </details>
 
+<details><summary><b>🌡️ Termômetros populares: "quem ganha em Minas ganha" e "o Nordeste decide" (presidenciais)</b></summary>
+
+Erro médio (pontos) se usássemos **só** o swing de Minas, ou **só** o do Nordeste, para projetar o Brasil inteiro. Os dois termômetros funcionam, mas olhar o país inteiro é melhor. No começo da apuração ainda há pouco voto de MG e do NE apurado (—):
+
+| % apurado | 🧠 BAYES (Brasil todo) | 🔺 só Minas | 🌵 só Nordeste |
+|---:|---:|---:|---:|
+| 0,25% | **1,28** | 0,89 | 3,14 |
+| 0,5% | **1,10** | 1,55 | 2,69 |
+| 1% | **0,76** | 2,15 | 2,72 |
+| 2% | **0,36** | 0,96 | 2,72 |
+| 3% | **0,34** | 0,63 | 2,82 |
+| 5% | **0,25** | 0,77 | 2,89 |
+| 10% | **0,25** | 0,62 | 2,73 |
+| 20% | **0,27** | 0,58 | 2,55 |
+| 30% | **0,23** | 0,66 | 2,23 |
+| 50% | **0,08** | 0,58 | 1,55 |
+| 70% | **0,05** | 0,42 | 0,84 |
+| 90% | **0,02** | 0,17 | 0,23 |
+
+</details>
+
 <details><summary><b>🔍 Caso a caso, com 1% apurado</b></summary>
 
 | eleição reproduzida | horário com 1% | placar cru | 🧠 previsão (intervalo 90%) | resultado real | erro | chance dada ao vencedor real |
 |---|---:|---:|---:|---:|---:|---:|
-| 2022-2T-PR | 17:13 | 43,40% | **52,27%** (51,34–53,23) | 50,90% | +1,36 | 100% |
-| 2026-1T-PR | 17:18 | 46,91% | **49,19%** (48,22–50,19) | 48,99% | +0,20 | 92% |
-| 2022-1T-PR | 17:37 | 46,11% | **52,36%** (51,45–53,29) | 52,86% | -0,50 | 100% |
+| 2022-2T-PR | 17:13 | 43,40% | **52,37%** (51,45–53,33) | 50,90% | +1,47 | 100% |
+| 2026-1T-PR | 17:18 | 46,91% | **49,15%** (48,18–50,15) | 48,99% | +0,16 | 92% |
+| 2022-1T-PR | 17:37 | 46,11% | **52,19%** (51,28–53,12) | 52,86% | -0,66 | 100% |
 | 2022-2T-GOV-AL | 17:25 | 48,81% | **53,38%** (50,40–56,32) | 52,33% | +1,05 | 97% |
 | 2022-2T-GOV-AM | 17:06 | 37,46% | **43,32%** (36,74–50,21) | 43,35% | -0,02 | 94% |
 | 2022-2T-GOV-BA | 17:20 | 45,88% | **53,72%** (51,55–56,00) | 52,79% | +0,93 | 100% |

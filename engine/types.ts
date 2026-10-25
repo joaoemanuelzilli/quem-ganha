@@ -77,6 +77,21 @@ export interface HistoryPoint {
   winProbLula: number;
 }
 
+/** Termômetros populares: "quem ganha em Minas ganha o Brasil" e "o Nordeste decide no fim". */
+export interface Thermometers {
+  minas: {
+    pct: number; lulaPct: number | null; projLulaPct: number; winProbLula: number; leader: CandKey;
+    record: string;                    // histórico do termômetro
+    impliedNationalLula: number | null; // swing de MG aplicado ao país inteiro
+  };
+  nordeste: {
+    pct: number; lulaPct: number | null; projLulaPct: number;
+    neededLulaPct: number;             // quanto Lula precisa no NE (dado o projetado no resto) para chegar a 50%
+    t1LulaPct: number;                 // Lula/(Lula+Flávio) no NE no 1º turno
+    impliedNationalLula: number | null; // swing do NE aplicado ao país inteiro
+  };
+}
+
 export interface GameEvent { t: string; kind: 'info' | 'lead' | 'call' | 'state' | 'milestone' | 'swing'; text: string; who?: CandKey }
 
 export interface ForecastState {
@@ -110,10 +125,13 @@ export interface ForecastState {
     trajectory: TrajectoryPoint[];
     etaFinish: string | null;   // horário previsto para 100%
     units: 'municipio' | 'uf';
+    /** true enquanto < 1% apurado: previsão ainda instável (dados entrando com peso reduzido) */
+    warmingUp?: boolean;
     unitsReporting: number;
     unitsTotal: number;
   };
   prior: { lulaPct: number; sd: number; source: string };
+  thermometers?: Thermometers;
   history: HistoryPoint[];
   states: StateRow[];
   events: GameEvent[];

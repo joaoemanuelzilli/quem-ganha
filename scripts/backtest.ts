@@ -108,7 +108,7 @@ function loadCase(def: CaseDef): LoadedCase {
   return { def, priors, ufPriors: aggregateUF(priors), truthPct: truth.aPct, snaps };
 }
 
-export interface Metric { key: string; level: string; cp: number; minute: number; pred: number; lo: number; hi: number; truth: number; err: number; covered: boolean; winOk: boolean; pTrue: number; crps: number; naive: number; uniform: number; ufextrap: number }
+export interface Metric { key: string; level: string; cp: number; minute: number; pred: number; lo: number; hi: number; truth: number; err: number; covered: boolean; winOk: boolean; pTrue: number; crps: number; naive: number; uniform: number; ufextrap: number; minas: number | null; nordeste: number | null }
 
 function crps(samples: Float64Array, y: number): number {
   const s = Float64Array.from(samples).sort();
@@ -140,7 +140,7 @@ function evaluate(lc: LoadedCase, params: ModelParams, level: 'municipio' | 'uf'
       key: lc.def.key, level, cp: s.cp, minute: s.minute, pred, lo: r.lulaQ.p05, hi: r.lulaQ.p95, truth: lc.truthPct,
       err: pred - lc.truthPct, covered: lc.truthPct >= r.lulaQ.p05 && lc.truthPct <= r.lulaQ.p95,
       winOk: (pred > 50) === aWon, pTrue: aWon ? r.winProbLula : 1 - r.winProbLula, crps: crps(r.finalLula, lc.truthPct),
-      naive: meth.naive, uniform: meth.uniform, ufextrap: meth.ufextrap,
+      naive: meth.naive, uniform: meth.uniform, ufextrap: meth.ufextrap, minas: meth.minas ?? null, nordeste: meth.nordeste ?? null,
     });
   }
   return out;

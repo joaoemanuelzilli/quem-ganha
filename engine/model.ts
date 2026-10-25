@@ -47,6 +47,7 @@ export interface ModelParams {
   sigmaZeta: number;    // choque comum nos votos restantes (nacional, logit)
   sigmaZetaUF: number;  // choque comum nos votos restantes (por UF, logit)
   muLate: number;       // viés médio dos votos que chegam por último (logit, + = PT): a 'virada do PT'
+  warmup: number;       // fração apurada até os dados terem peso total (aquecimento contra o ruído inicial)
   turnoutK: number;     // nº de eleitores para confiar 50% no comparecimento observado
   turnoutSd: number;    // incerteza relativa do comparecimento nacional
   draws: number;
@@ -56,7 +57,7 @@ export interface ModelParams {
 export const DEFAULT_MUN_PARAMS: ModelParams = {
   alpha: 0.45, priorLula: 49.0, priorSd: 2.5, sigmaBeta: 2.0, sigmaBeta2: 0.15,
   sigmaU: 0.08, sigmaE: 0.11, sigmaESmall: 0.08, sigmaSec: 0.6, sigmaOrd: 0.04,
-  sigmaZeta: 0.04, sigmaZetaUF: 0.04, muLate: 0,
+  sigmaZeta: 0.04, sigmaZetaUF: 0.04, muLate: 0, warmup: 0,
   turnoutK: 3000, turnoutSd: 0.012, draws: 2000, seed: 42,
 };
 
@@ -69,6 +70,8 @@ export const DEFAULT_UF_PARAMS: ModelParams = {
 };
 
 /** Região usada no efeito aleatório: UF para municípios, macro-região para UFs. */
+export const NE_UFS = ['al', 'ba', 'ce', 'ma', 'pb', 'pe', 'pi', 'rn', 'se'];
+
 export const MACRO: Record<string, string> = {
   ac: 'N', am: 'N', ap: 'N', pa: 'N', ro: 'N', rr: 'N', to: 'N',
   al: 'NE', ba: 'NE', ce: 'NE', ma: 'NE', pb: 'NE', pe: 'NE', pi: 'NE', rn: 'NE', se: 'NE',
@@ -196,6 +199,9 @@ export function run(m: PreparedModel, obs: Map<string, UnitObs>): RunResult {
   const rng = new Rng(p.seed);
   const sigmaDelta = (p.priorSd / 100) / 0.25; // pp → logit (derivada em 50%)
   const sU2 = p.sigmaU ** 2;
+  // o voto do exterior chega todo antes das 17h e não representa o Brasil: efeito regional
+  // bem mais solto (σ = 0,35) para que quase não contamine o swing nacional δ
+  const sU2r = new Float64Array(R).map((_, r) => (m.regionNames[r] === 'zz' || m.regionNames[r] === 'EXT' ? 0.35 ** 2 : sU2));
 
   // ── observações ──
   const oI: number[] = [], oZ: number[] = [], oOmega: number[] = [], oA: number[] = [];
@@ -219,6 +225,12 @@ export function run(m: PreparedModel, obs: Map<string, UnitObs>): RunResult {
     oI.push(i); oZ.push(logit(yHat) - m.logitB[i]); oOmega.push(omega); oA.push(1 / (m.sigE2[i] + omega));
   }
 
+  // ── aquecimento: nos primeiros instantes as poucas seções apuradas de cada cidade têm viés comum
+  //    (todas puxam para o mesmo lado). Os dados entram com peso τ = fração apurada / warmup (≤ 1).
+  const natCountedFrac = counted.secoes > 0 ? counted.secoesTot / counted.secoes : 0;
+  const tau = p.warmup > 0 ? Math.min(1, Math.max(0.02, natCountedFrac / p.warmup)) : 1;
+  if (tau < 1) for (let j = 0; j < oA.length; j++) oA[j] *= tau;
+
   // ── posteriori de θ = (δ, β1..β3) integrando u_r (Sherman–Morrison por região) ──
   const priorPrec = [1 / sigmaDelta ** 2, 1 / p.sigmaBeta ** 2, 1 / p.sigmaBeta2 ** 2, 1 / p.sigmaBeta2 ** 2];
   const P = new Array(K * K).fill(0);
@@ -238,7 +250,7 @@ export function run(m: PreparedModel, obs: Map<string, UnitObs>): RunResult {
   }
   for (let r = 0; r < R; r++) {
     if (regA[r] === 0) continue;
-    const c = sU2 / (1 + sU2 * regA[r]);
+    const c = sU2r[r] / (1 + sU2r[r] * regA[r]);
     for (let s = 0; s < K; s++) {
       bv[s] -= c * regAx[r * K + s] * regAz[r];
       for (let t = 0; t <= s; t++) P[s * K + t] -= c * regAx[r * K + s] * regAx[r * K + t];
@@ -311,7 +323,7 @@ export function run(m: PreparedModel, obs: Map<string, UnitObs>): RunResult {
     for (let u = 0; u < U; u++) zU[u] = p.sigmaZetaUF * Math.sqrt(ufRemFrac[u]) * rng.normal();
     regSumAe.fill(0);
     for (let j = 0; j < oI.length; j++) { const i = oI[j]; regSumAe[m.region[i]] += oA[j] * (oZ[j] - xb[i]); }
-    for (let r = 0; r < R; r++) { const prec = 1 / sU2 + regA[r]; uR[r] = regSumAe[r] / prec + Math.sqrt(1 / prec) * rng.normal(); }
+    for (let r = 0; r < R; r++) { const prec = 1 / sU2r[r] + regA[r]; uR[r] = regSumAe[r] / prec + Math.sqrt(1 / prec) * rng.normal(); }
     ufL.fill(0); ufV.fill(0);
     for (let i = 0; i < n; i++) {
       const remV = remValidExp[i] * kNoise;
@@ -406,11 +418,25 @@ function altMethods(m: PreparedModel, cLula: Float64Array, cValid: Float64Array,
   const uniform = uv > 0 ? (100 * ul) / uv : naive;
   let pl = 0, pv = 0;
   for (let i = 0; i < n; i++) { pl += invLogit(m.logitB[i] + m.delta0) * m.v1[i]; pv += m.v1[i]; }
+  // termômetros: swing medido só em MG (ou só no NE) aplicado a todo voto que falta no país
+  const regionSwing = (ufs: string[]) => {
+    let nn = 0, dd = 0;
+    for (let i = 0; i < n; i++) if (cValid[i] > 0 && ufs.includes(m.units[i].uf)) { const yh = (cLula[i] + 0.5) / (cValid[i] + 1); nn += (logit(yh) - m.logitB[i]) * cValid[i]; dd += cValid[i]; }
+    if (dd < 2000) return null;
+    const swr = nn / dd;
+    let a = counted.lula, b = counted.validos;
+    for (let i = 0; i < n; i++) { a += invLogit(m.logitB[i] + swr) * remValid[i]; b += remValid[i]; }
+    return b > 0 ? (100 * a) / b : null;
+  };
+  const minas = regionSwing(['mg']);
+  const nordeste = regionSwing(NE_UFS);
   return [
     { id: 'bayes', name: 'BAYES HIERÁRQUICO', desc: `Swing logístico por ${m.level === 'municipio' ? 'município' : 'UF'} vs 1º turno + covariáveis, encolhimento regional, Monte Carlo`, lulaPct: bayes, winProbLula: bayesWin, weight: 1 },
     { id: 'uniform', name: 'SWING UNIFORME', desc: 'Mesmo swing (vs 1º turno) para todo voto que falta', lulaPct: uniform },
     { id: 'ufextrap', name: 'PROJEÇÃO POR ESTADO', desc: 'Cada UF mantém a % já apurada no que falta', lulaPct: ufExtrap },
     { id: 'naive', name: 'PLACAR CRU', desc: 'Só a % apurada até agora (o que a TV mostra)', lulaPct: naive },
     { id: 'polls', name: 'PESQUISAS', desc: 'Média das pesquisas (corrigida) + transferência do 1º turno', lulaPct: (100 * pl) / Math.max(1, pv) },
+    ...(minas !== null ? [{ id: 'minas', name: 'TERMÔMETRO DE MINAS', desc: 'O swing de MG (vs 1º turno) aplicado ao Brasil inteiro — "quem ganha em Minas ganha a eleição"', lulaPct: minas }] : []),
+    ...(nordeste !== null ? [{ id: 'nordeste', name: 'TERMÔMETRO DO NORDESTE', desc: 'O swing do Nordeste (vs 1º turno) aplicado ao Brasil inteiro', lulaPct: nordeste }] : []),
   ];
 }

@@ -30,6 +30,15 @@ const presRows: Row[] = [...new Set(pres.map((m) => m.cp))].map((cp) => {
   return { cp, n: xs.length, maeBayes: mae((m) => m.err), maeUniform: mae((m) => (m as unknown as { uniform: number }).uniform - m.truth), maeUF: mae((m) => (m as unknown as { ufextrap: number }).ufextrap - m.truth), maeNaive: mae((m) => m.naive - m.truth), cover90: xs.filter((m) => m.truth >= m.lo && m.truth <= m.hi).length / xs.length, winOk: xs.filter((m) => (m.pred > 50) === (m.truth > 50)).length / xs.length, pTrue: xs.reduce((s, m) => s + m.pTrue, 0) / xs.length };
 });
 
+// termômetros (só presidenciais): erro médio quando disponível
+const thermo = [...new Set(pres.map((m) => m.cp))].map((cp) => {
+  const xs = pres.filter((m) => m.cp === cp) as (M & { minas: number | null; nordeste: number | null })[];
+  const mae = (k: 'minas' | 'nordeste') => { const ys = xs.filter((m) => m[k] !== null); return ys.length ? ys.reduce((s, m) => s + Math.abs((m[k] as number) - m.truth), 0) / ys.length : null; };
+  return { cp, minas: mae('minas'), nordeste: mae('nordeste'), bayes: xs.reduce((s, m) => s + Math.abs(m.err), 0) / xs.length };
+});
+let thermoTable = '| % apurado | 🧠 BAYES (Brasil todo) | 🔺 só Minas | 🌵 só Nordeste |\n|---:|---:|---:|---:|\n';
+for (const t of thermo) thermoTable += `| ${String(t.cp).replace('.', ',')}% | **${f(t.bayes)}** | ${t.minas === null ? '—' : f(t.minas)} | ${t.nordeste === null ? '—' : f(t.nordeste)} |\n`;
+
 const at1 = metrics.filter((m) => m.cp === 1);
 let detail = '| eleição reproduzida | horário com 1% | placar cru | 🧠 previsão (intervalo 90%) | resultado real | erro | chance dada ao vencedor real |\n|---|---:|---:|---:|---:|---:|---:|\n';
 for (const m of at1) {
@@ -49,6 +58,13 @@ ${table(presRows)}
 <details><summary><b>📊 Todas as 15 apurações (presidente + 12 governadores)</b></summary>
 
 ${table(mun)}
+</details>
+
+<details><summary><b>🌡️ Termômetros populares: "quem ganha em Minas ganha" e "o Nordeste decide" (presidenciais)</b></summary>
+
+Erro médio (pontos) se usássemos **só** o swing de Minas, ou **só** o do Nordeste, para projetar o Brasil inteiro. Os dois termômetros funcionam, mas olhar o país inteiro é melhor. No começo da apuração ainda há pouco voto de MG e do NE apurado (—):
+
+${thermoTable}
 </details>
 
 <details><summary><b>🔍 Caso a caso, com 1% apurado</b></summary>
