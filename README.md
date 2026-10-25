@@ -28,6 +28,22 @@
  ╚══════════════════════════════════════════════════════════════════════╝
 ```
 
+## 🎮 GAMEPLAY
+
+<table>
+<tr>
+<td width="72%"><img src="docs/img/screen-title.png" alt="Tela de título: contagem regressiva para as 17h, VS, prior das pesquisas e Polymarket"></td>
+<td width="28%" rowspan="2"><img src="docs/img/screen-mobile.png" alt="Versão mobile: HUD de luta e medidor de chance de vitória"></td>
+</tr>
+<tr><td><sub><b>STAGE 0 — tela de título.</b> Contagem regressiva, prior das pesquisas e a cotação do Polymarket ao vivo. <b>JOGAR DEMO</b> simula uma apuração inteira em 90 s.</sub></td></tr>
+</table>
+
+<p align="center"><img src="docs/img/screen-arena.png" width="100%" alt="Arena: HUD com barras de vida, gráfico da apuração com previsão do restante, chance de vitória, projeção final e termômetros de Minas e do Nordeste"></p>
+<p align="center"><sub><b>A ARENA.</b> Barras de vida = votos apurados · linha cheia = apuração até agora · faixa pontilhada = <b>previsão de como o resto da apuração vai se comportar</b> · medidor de chance de vitória · termômetros de Minas e do Nordeste.</sub></p>
+
+<p align="center"><img src="docs/img/screen-methods.png" width="100%" alt="Select your algorithm: cada método com sua previsão e seu erro histórico no backtest"></p>
+<p align="center"><sub><b>SELECT YOUR ALGORITHM.</b> Cada "personagem" é um método de previsão, com a <b>barra de erro histórico</b> medida no backtest. A carta dourada é a previsão oficial.</sub></p>
+
 <img src="docs/img/stage-select.svg" width="100%" alt="Escolha seu lutador">
 
 | | 🟥 **PLAYER 1** | 🟩 **PLAYER 2** |

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>QUEM GANHA? 2026 — Lula x Flávio ao vivo</title>
+  <meta name="description" content="Previsão estatística ao vivo do 2º turno presidencial de 2026 (Lula x Flávio Bolsonaro) a partir da apuração do TSE, em estilo video game 16-bit." />
+  <meta name="theme-color" content="#0b0d26" />
+  <meta property="og:title" content="QUEM GANHA? 2026" />
+  <meta property="og:description" content="Lula x Flávio: a apuração do 2º turno como uma luta de arcade, com previsão estatística ao vivo." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <canvas id="sky" aria-hidden="true"></canvas>
+  <div class="crt" aria-hidden="true"></div>
+
+  <div id="app" class="app is-loading">
+    <!-- BARRA SUPERIOR -->
+    <header class="topbar">
+      <div class="stage" id="stage"><span class="stage-n">STAGE 1</span><span class="stage-name">CARREGANDO…</span></div>
+      <h1 class="logo"><span class="logo-q">QUEM GANHA?</span><span class="logo-y">2026</span></h1>
+      <div class="topbar-right">
+        <span class="mode-badge" id="mode-badge">…</span>
+        <button class="btn-sound" id="btn-sound" type="button" aria-pressed="false" title="Ligar/desligar efeitos sonoros">
+          <span class="snd-ico" aria-hidden="true"></span><span class="snd-txt">SOM OFF</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- TELA PRÉ-JOGO -->
+    <section class="pregame" id="pregame" hidden aria-label="Antes da apuração"></section>
+
+    <!-- JOGO -->
+    <div class="game" id="game">
+      <!-- HUD -->
+      <section class="hud" id="hud" aria-label="Placar da apuração"></section>
+
+      <div class="row row-main">
+        <section class="panel arena" id="arena" aria-labelledby="arena-title">
+          <div class="panel-head">
+            <h2 id="arena-title" class="panel-title">ARENA <small>% dos votos válidos do Lula conforme as seções são apuradas</small></h2>
+          </div>
+          <div class="arena-legend" id="arena-legend"></div>
+          <div class="arena-plot" id="arena-plot"></div>
+          <details class="arena-table">
+            <summary>Ver dados em tabela</summary>
+            <div class="table-wrap" id="arena-table"></div>
+          </details>
+        </section>
+
+        <aside class="side">
+          <section class="panel power" id="power" aria-labelledby="power-title"></section>
+          <section class="panel proj" id="proj" aria-labelledby="proj-title"></section>
+        </aside>
+      </div>
+
+      <section class="panel thermo" id="thermo" hidden aria-labelledby="thermo-title"></section>
+
+      <div class="row row-lower">
+        <section class="panel map" id="map" aria-labelledby="map-title"></section>
+        <div class="lower-side">
+          <section class="panel log" id="log" aria-labelledby="log-title"></section>
+          <section class="panel poly" id="poly" aria-label="Polymarket (mercado de apostas)"></section>
+        </div>
+      </div>
+
+      <section class="panel methods" id="methods" aria-labelledby="methods-title"></section>
+    </div>
+
+    <footer class="footer" id="footer"></footer>
+  </div>
+
+  <div class="fx-layer" id="fx" aria-hidden="true"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
