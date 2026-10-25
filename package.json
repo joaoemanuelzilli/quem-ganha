@@ -1,0 +1,29 @@
+{
+  "name": "quem-ganha",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Previsão ao vivo do 2º turno presidencial 2026 (Lula x Flávio Bolsonaro) a partir da apuração do TSE — estilo video game 8-bit.",
+  "scripts": {
+    "priors": "tsx scripts/build-priors.ts",
+    "worker": "tsx worker/index.ts",
+    "replay": "tsx scripts/replay.ts",
+    "backtest": "tsx scripts/backtest.ts",
+    "dev": "vite web",
+    "build": "vite build web",
+    "preview": "vite preview web",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.2"
+  }
+}

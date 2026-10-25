@@ -1,0 +1,11 @@
+{
+  "priorLula": 47.41,
+  "priorSd": 2.5,
+  "alpha": 0.41,
+  "curves": "2022_t2",
+  "pollAverage": 49.10,
+  "pollBias": -1.69,
+  "source": "18 pesquisas finais (média ponderada 49,1%) − viés histórico das pesquisas (−1,7 pp: 2022 1T/2T e 2026 1T)",
+  "alphaSource": "Transferência declarada dos eleitores de Cury, Renan, Caiado e Zema (Quaest/Atlas/Datafolha) ≈ 41% para Lula",
+  "notes": "Prior só pesa no início: com ~1% das seções apuradas os dados já dominam."
+}
