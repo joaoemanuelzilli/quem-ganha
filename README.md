@@ -91,6 +91,11 @@ logit(y_município) = logit(base_1ºturno) + δ_nacional + β·[outros, tamanho,
 | 🗳️ **Modelo de comparecimento** | votos válidos esperados por eleitor ainda não apurado, local × regional |
 | 🎲 **Monte Carlo** | 2.000 cenários completos → chance de vitória, intervalo de 90%, previsão por estado |
 | ⏱️ **Curvas de chegada reais** | horário em que cada boletim de 2022/2026 chegou ao TSE → prevê o **formato** do resto do gráfico e a hora de terminar |
+| 🔁 **Virada do PT** | no Brasil o voto que chega por último é mais petista do que o swing dos primeiros sugere. O viés (μ = 0,045 logit) foi aprendido nas 3 presidenciais, e cada uma, sozinha, aponta o mesmo valor |
+| 🌍 **Exterior isolado** | as urnas do exterior chegam todas antes das 17h e não representam o Brasil: contam nos votos, mas quase não mexem no swing nacional |
+| 🔥 **Aquecimento** | nos primeiros minutos, as poucas seções de cada cidade puxam todas para o mesmo lado: os dados entram com peso reduzido até 1% apurado |
+| 🤝 **COMBO** | até 1% apurado, 75% de peso para o modelo por estado (menos ruidoso no comecinho), caindo a zero em 5%. Backtest: erro de 0,50 pp com 1% |
+| 🌡️ **Termômetros** | "quem ganha em Minas ganha o Brasil" (acertou todos os 2º turnos desde 1989) e "meta no Nordeste": quanto Lula **precisa** fazer no NE, dado o resto do país |
 | 🧮 **Solução exata** | tudo gaussiano em logit, sem MCMC: ajuste + simulações em ~1,3 s |
 
 <img src="docs/img/stage-3.svg" width="100%" alt="Stage 3: treino">

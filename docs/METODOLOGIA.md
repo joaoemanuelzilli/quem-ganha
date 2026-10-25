@@ -48,6 +48,18 @@ logit(y_i) = logit(b_i) + δ + β₁·outros_i + β₂·tamanho_i + β₃·incli
 
 **Monte Carlo.** Cada sorteio: `θ → u_UF → ε_i → ζ → votos restantes → total nacional`. Daí saem `P(Lula vence)`, o intervalo de 90%, a projeção por estado e o comparecimento.
 
+## 3b. Quatro ajustes aprendidos no backtest
+
+1. **Virada do PT (μ).** Nas três presidenciais reproduzidas, entre 5% e 50% apurado o modelo "puro" subestimava o PT em ~1 ponto, sempre na mesma direção: os votos que chegam por último (Nordeste, grandes cidades) são mais petistas do que o swing dos primeiros sugere. Acrescentamos um viés médio μ nos votos que faltam. Cada eleição, sozinha, aponta μ ≈ 0,04–0,05 (logit), e usamos 0,045. Ele entra aos poucos nos primeiros 5% e só na medida em que a estimativa já vem dos dados. Nos governadores (onde "A" é arbitrário) μ = 0.
+2. **Exterior isolado.** As urnas do exterior chegam todas antes das 17h e dominam o primeiro snapshot. O efeito regional do exterior tem dp de 0,35 (contra ~0,08 das UFs), então ele quase não contamina o swing nacional.
+3. **Aquecimento.** Com 0,2% apurado, centenas de municípios aparecem com 1–2 seções, e essas primeiras seções têm viés comum. Até 1% apurado, os dados entram com peso τ = fração apurada / 1%.
+4. **COMBO.** No comecinho, o modelo por UF (28 totais, menos ruidosos) errou menos que o municipal: 0,41 contra 0,76 pp com 1%. Com 5%, inverte: 0,40 contra 0,25. A previsão oficial mistura os dois em logit, com 75% para o modelo por UF até 1% apurado, caindo linearmente a 0% em 5%. Backtest do COMBO: **0,50 pp com 1%**.
+
+## 3c. Termômetros populares (também testados)
+
+- **"Quem ganha em Minas ganha o Brasil"**: verdade em todos os 2º turnos desde 1989 e no 1º turno de 2026. O dashboard mostra quem lidera MG e o que o swing de MG implica para o país. No backtest, usar *só* Minas erra 2,15 pp com 1% e 0,77 com 5%: funciona, mas o país inteiro informa mais.
+- **"Meta no Nordeste"**: dado o projetado para o resto do país, quanto Lula **precisa** fazer no NE para chegar a 50%, comparado com o que está fazendo e com o 1º turno (67,4% entre os dois). O Nordeste chega por último, então essa é a conta que decide a noite.
+
 ## 4. O prior: pesquisas corrigidas
 
 - Média ponderada das **18 pesquisas** da semana final: Lula **49,1%** dos válidos.
