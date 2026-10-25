@@ -1,0 +1,91 @@
+name: 🕹️ Worker ao vivo (nuvem)
+
+# O mesmo worker do notebook, rodando no GitHub Actions — assim o notebook pode ficar desligado.
+# Cada job dura no máximo 6 h; antes de acabar ele dispara o próximo ("troca de turno").
+# A troca é marcada para 16:40 (antes da apuração) e o turno seguinte cobre a noite toda.
+
+on:
+  workflow_dispatch:
+    inputs:
+      handover:
+        description: 'Troca de turno antes da apuração (ISO, horário de Brasília)'
+        default: '2026-10-25T16:40:00-03:00'
+  schedule:
+    # reservas, caso a corrente de turnos se rompa (16:15 e 16:35 em Brasília)
+    - cron: '15 19 25 10 *'
+    - cron: '35 19 25 10 *'
+
+permissions:
+  contents: write   # snapshots no branch ao-vivo
+  actions: write    # disparar o próximo turno
+
+concurrency:
+  group: worker-ao-vivo
+  cancel-in-progress: false
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 358
+    env:
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      WORKER_ROLE: primary
+      WORKER_ID: nuvem-github-actions
+      EXIT_AFTER_FINAL_MIN: '40'
+      TZ: America/Sao_Paulo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Segredo do Vercel Blob
+        run: |
+          if [ -z "$BLOB_READ_WRITE_TOKEN" ]; then
+            echo "::error::Falta o segredo BLOB_READ_WRITE_TOKEN (Settings → Secrets and variables → Actions)"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - name: Acesso à API do TSE
+        run: |
+          for f in br/br-c0001-e006258-u.json sp/sp-e006258-ab.json sp/sp71072-c0001-e006258-u.json; do
+            curl -sf -o /dev/null -w "TSE $f → %{http_code} em %{time_total}s\n" "https://resultados.tse.jus.br/oficial/ele2026/6258/dados/$f"
+          done
+
+      - name: Worker (reinicia se cair)
+        id: run
+        env:
+          HANDOVER: ${{ inputs.handover || '2026-10-25T16:40:00-03:00' }}
+        run: |
+          git config --global user.name "joaoemanuel7"
+          git config --global user.email "174621814+joaoemanuelzilli@users.noreply.github.com"
+          now=$(date +%s)
+          # só aceita data ISO (nada de texto livre no shell)
+          if ! [[ "$HANDOVER" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?[-+][0-9]{2}:[0-9]{2}$ ]]; then HANDOVER='2026-10-25T16:40:00-03:00'; fi
+          handover=$(date -d "$HANDOVER" +%s)
+          if [ "$now" -lt $((handover - 900)) ]; then end=$handover; else end=$((now + 345 * 60)); fi
+          echo "▶ turno até $(date -d @"$end" '+%d/%m %H:%M')"
+          code=0
+          while [ "$(date +%s)" -lt "$end" ]; do
+            timeout $((end - $(date +%s))) npx tsx worker/index.ts && code=0 || code=$?
+            [ "$code" -eq 10 ] && break
+            sleep 5
+          done
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Próximo turno
+        # só se o worker realmente rodou (nunca em loop de falhas) e não terminou a apuração
+        if: ${{ always() && (steps.run.outcome == 'success' || steps.run.outcome == 'failure') && steps.run.outputs.code != '10' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ github.ref_name }}
+        run: |
+          if [ "$(date +%s)" -gt "$(date -d '2026-10-26T04:00:00-03:00' +%s)" ]; then echo "fim da noite eleitoral — sem novo turno"; exit 0; fi
+          gh workflow run worker.yml --ref "$REF"
+          echo "🔁 próximo turno disparado"

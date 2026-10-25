@@ -15,6 +15,8 @@ if [ ! -d "$WT/.git" ] && [ ! -f "$WT/.git" ]; then
   fi
 fi
 [ -f "$ROOT/live/state.public.json" ] || exit 0
+# parte sempre do que já está no GitHub (a nuvem e o notebook podem se revezar)
+git -C "$WT" fetch -q origin ao-vivo 2>/dev/null && git -C "$WT" reset -q --hard origin/ao-vivo || true
 mkdir -p "$WT/snapshots"
 TS=$(TZ=America/Sao_Paulo date +%Y%m%d-%H%M)
 cp "$ROOT/live/state.public.json" "$WT/snapshots/$TS.json"
@@ -30,4 +32,4 @@ if [ ! -f README.md ]; then
 fi
 git add -A
 git commit -q -m "$MSG" || exit 0
-git push -q -u origin ao-vivo
+git push -q -u origin ao-vivo || { git fetch -q origin ao-vivo && git rebase -q -X theirs origin/ao-vivo && git push -q -u origin ao-vivo; }

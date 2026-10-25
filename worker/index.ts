@@ -10,7 +10,8 @@
 // ════════════════════════════════════════════════════════════════════════════
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import os from 'node:os';
 import { DEFAULT_MUN_PARAMS, DEFAULT_UF_PARAMS, prepare, run, type ModelParams, type PreparedModel } from '../engine/model';
 import { buildForecast, comboWeight, COUNT_START, type National } from '../engine/forecast';
 import { ELE_T2, NR_FLAVIO, NR_LULA, UFS, fetchJson, parseProgress, parseResult, resultToObs, tseDate, urls } from '../engine/tse';
@@ -37,6 +38,12 @@ const PUBLISH_MS = Number(process.env.PUBLISH_MS ?? 30000);
 const USE_TSE_CLOCK = !!process.env.USE_TSE_CLOCK;
 const START = process.env.COUNT_START ? new Date(process.env.COUNT_START) : COUNT_START;
 const NO_PUBLISH = !!process.env.NO_PUBLISH;
+// papéis: 'primary' (nuvem — GitHub Actions) sempre publica; 'backup' (notebook) só publica
+// se ninguém mais publicou nos últimos 150 s — troca automática se a nuvem cair.
+const ROLE = (process.env.WORKER_ROLE ?? 'primary') as 'primary' | 'backup';
+const WORKER_ID = process.env.WORKER_ID ?? `notebook-${os.hostname()}`;
+const PUBLIC_STATE_URL = process.env.PUBLIC_STATE_URL ?? 'https://u0jc3e2rvtfdcwiu.public.blob.vercel-storage.com/live/state.json';
+const EXIT_AFTER_FINAL_MIN = Number(process.env.EXIT_AFTER_FINAL_MIN ?? 0);
 
 const readJson = (p: string) => JSON.parse(readFileSync(`${ROOT}${p}`, 'utf8'));
 const trained = existsSync(`${ROOT}data/model/params.json`) ? readJson('data/model/params.json') : {};
@@ -115,11 +122,31 @@ function publishable(s: ForecastState) {
   return JSON.stringify(slimState(s));
 }
 
+let otherCache = { t: 0, alive: false, who: '' };
+/** outro worker (ex.: a nuvem) publicou há menos de 150 s? */
+async function otherPublisherAlive(): Promise<boolean> {
+  if (ROLE === 'primary' || NO_PUBLISH) return false;
+  if (Date.now() - otherCache.t < 20000) return otherCache.alive;
+  let alive = false, who = '';
+  try {
+    const s = await fetchJson(`${PUBLIC_STATE_URL}?t=${Date.now()}`, 8000) as ForecastState;
+    who = s.publisher ?? '';
+    alive = !!s.publisher && s.publisher !== WORKER_ID && Date.now() - new Date(s.generatedAt).getTime() < 150000;
+  } catch { alive = false; }
+  if (alive !== otherCache.alive) log(alive ? `🛰  ${who} está publicando — este notebook fica de reserva` : '🛟 ninguém publicando — este notebook assume');
+  otherCache = { t: Date.now(), alive, who };
+  return alive;
+}
+let standby = false;
+
 async function publish(s: ForecastState) {
+  s.publisher = WORKER_ID;
   writeFileSync(`${LIVE}state.json`, JSON.stringify(s));
   const body = publishable(s);
   writeFileSync(`${LIVE}state.public.json`, body);
   if (!BLOB_TOKEN || NO_PUBLISH) return;
+  standby = await otherPublisherAlive();
+  if (standby) return;
   const key = `${s.progress.secoesTot}|${s.forecast.lulaPct.mean.toFixed(3)}|${s.status}`;
   const now = Date.now();
   if (now - lastPublished < PUBLISH_MS && key === lastPublishedKey) return;
@@ -164,7 +191,15 @@ async function tick() {
   }
   prev = state;
   await publish(state);
-  gitSnapshot(state);
+  if (!standby) gitSnapshot(state);
+  if (state.status === 'final' && EXIT_AFTER_FINAL_MIN > 0) {
+    finalSince ??= Date.now();
+    if (Date.now() - finalSince > EXIT_AFTER_FINAL_MIN * 60000) {
+      log('🏁 apuração encerrada — último snapshot e saída');
+      if (!standby && GIT_SNAPSHOTS) spawnSync('bash', [`${ROOT}scripts/snapshot-git.sh`], { cwd: ROOT, stdio: 'ignore', timeout: 60000 });
+      process.exit(10);
+    }
+  }
   const f = state.forecast;
   log(`${state.progress.pct.toFixed(2).padStart(6)}% apurado | atual Lula ${state.current.lulaPct.toFixed(2)}% | PREVISÃO Lula ${f.lulaPct.mean.toFixed(2)}% [${f.lulaPct.p05.toFixed(1)}–${f.lulaPct.p95.toFixed(1)}] | P(Lula) ${(100 * f.winProbLula).toFixed(1)}% | ${f.call.toUpperCase()} | mun ${f.unitsReporting}${munInfo.changed ? ` (+${munInfo.changed}${munInfo.failed ? `, ${munInfo.failed} falhas` : ''})` : ''} | ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   appendFileSync(`${LIVE}history.ndjson`, JSON.stringify({ t: state.generatedAt, pct: state.progress.pct, lula: state.current.lulaPct, prev: f.lulaPct.mean, lo: f.lulaPct.p05, hi: f.lulaPct.p95, p: f.winProbLula, call: f.call }) + '\n');
@@ -174,6 +209,7 @@ async function tick() {
 // registro público: snapshot no branch "ao-vivo" do GitHub a cada 10 min durante a apuração
 const GIT_SNAPSHOTS = process.env.GIT_SNAPSHOTS !== '0' && !process.env.NO_PUBLISH;
 let lastSnap = 0, finalSnapped = false;
+let finalSince: number | undefined;
 function gitSnapshot(s: ForecastState) {
   if (!GIT_SNAPSHOTS || s.status === 'pre') return;
   const now = Date.now();
@@ -209,5 +245,14 @@ http.createServer((req, res) => {
   res.statusCode = 404; res.end('not found');
 }).on('error', (e) => log(`⚠ servidor local indisponível (${(e as Error).message}) — seguindo só com o Blob`)).listen(PORT, () => log(`🕹  worker no ar — http://localhost:${PORT}/state.json ${BLOB_TOKEN ? '· publicando no Vercel Blob' : '· (sem BLOB_READ_WRITE_TOKEN: só local)'}`));
 
-log(`prior: Lula ${munParams.priorLula}% ± ${munParams.priorSd} · α=${munParams.alpha} · curvas ${curveKey} · ${munPriors.length} municípios`);
-loop();
+log(`prior: Lula ${munParams.priorLula}% ± ${munParams.priorSd} · α=${munParams.alpha} · curvas ${curveKey} · ${munPriors.length} municípios · papel ${ROLE} (${WORKER_ID})`);
+
+/** continuidade: se este worker não tem estado salvo, retoma o último publicado (histórico, eventos) */
+async function seedFromPublished() {
+  if (prev || USE_TSE_CLOCK || NO_PUBLISH) return;
+  try {
+    const s = await fetchJson(`${PUBLIC_STATE_URL}?t=${Date.now()}`, 10000) as ForecastState;
+    if (s?.status && s.status !== 'pre' && s.election?.id === ELE_T2) { prev = s; log(`↺ retomando estado publicado (${s.progress.pct.toFixed(2)}% apurado, ${s.history.length} pontos de histórico)`); }
+  } catch { /* começa do zero */ }
+}
+seedFromPublished().finally(loop);

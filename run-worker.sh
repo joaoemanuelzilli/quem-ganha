@@ -4,6 +4,8 @@
 #   nohup ./run-worker.sh &    (em segundo plano; log em live/worker.log)
 cd "$(dirname "$0")"
 mkdir -p live
+# no notebook o worker é RESERVA: só publica se a nuvem (GitHub Actions) parar
+export WORKER_ROLE="${WORKER_ROLE:-backup}"
 loop() {
   while true; do
     echo "=== $(date '+%F %T') iniciando worker ===" >> live/worker.log

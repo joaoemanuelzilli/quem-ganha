@@ -135,6 +135,8 @@ export interface ForecastState {
   };
   prior: { lulaPct: number; sd: number; source: string };
   thermometers?: Thermometers;
+  /** quem publicou este estado (nuvem/notebook) — usado na troca automática principal ↔ reserva */
+  publisher?: string;
   history: HistoryPoint[];
   states: StateRow[];
   events: GameEvent[];
