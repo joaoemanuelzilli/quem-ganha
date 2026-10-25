@@ -1,0 +1,16 @@
+# o site só precisa de web/, engine/ e de alguns JSON pequenos de data/
+data/raw
+data/processed
+data/model/curves.json
+data/model/backtest.json
+data/model/params_v1.json
+data/priors/t1_2026_mun.json
+data/priors/municipios.json
+training
+live
+docs
+scripts
+worker
+node_modules
+.env*
+*.zip

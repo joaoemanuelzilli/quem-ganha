@@ -1,0 +1,31 @@
+{
+  "note": "erro médio absoluto (pp) do resultado final nas presidenciais 2022 1T/2T e 2026 1T, com 1% e 5% apurado",
+  "bayes": {
+    "mae1": 0.76,
+    "mae5": 0.25
+  },
+  "bayes-uf": {
+    "mae1": 0.41,
+    "mae5": 0.4
+  },
+  "uniform": {
+    "mae1": 0.75,
+    "mae5": 0.72
+  },
+  "ufextrap": {
+    "mae1": 1.13,
+    "mae5": 1.98
+  },
+  "naive": {
+    "mae1": 5.44,
+    "mae5": 4.85
+  },
+  "minas": {
+    "mae1": 2.15,
+    "mae5": 0.77
+  },
+  "nordeste": {
+    "mae1": 2.72,
+    "mae5": 2.89
+  }
+}

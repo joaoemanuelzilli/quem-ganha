@@ -12,7 +12,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { DEFAULT_MUN_PARAMS, DEFAULT_UF_PARAMS, prepare, run, type ModelParams, type PreparedModel } from '../engine/model';
-import { buildForecast, COUNT_START, type National } from '../engine/forecast';
+import { buildForecast, comboWeight, COUNT_START, type National } from '../engine/forecast';
 import { ELE_T2, NR_FLAVIO, NR_LULA, UFS, fetchJson, parseProgress, parseResult, resultToObs, tseDate, urls } from '../engine/tse';
 import { loadPriors, slimState } from '../engine/priors';
 import type { Curves } from '../engine/trajectory';
@@ -41,6 +41,7 @@ const NO_PUBLISH = !!process.env.NO_PUBLISH;
 const readJson = (p: string) => JSON.parse(readFileSync(`${ROOT}${p}`, 'utf8'));
 const trained = existsSync(`${ROOT}data/model/params.json`) ? readJson('data/model/params.json') : {};
 const livePrior = readJson('data/model/live_prior.json');
+const scores = existsSync(`${ROOT}data/model/method_scores.json`) ? readJson('data/model/method_scores.json') : undefined;
 const curvesAll = readJson('data/model/curves.json');
 const curveKey = livePrior.curves ?? '2022_t2';
 const curves: Curves = { K: curvesAll.K, ...curvesAll[curveKey] };
@@ -146,12 +147,16 @@ async function tick() {
   }
   // modelo por UF (comparação / método extra)
   const ufRun = run(prepUF, ufObs);
+  const natPct = nat.secoes > 0 ? (100 * nat.secoesTot) / nat.secoes : 0;
   const { state } = buildForecast({
+    blend: counting ? { uf: ufRun, weight: comboWeight(natPct) } : undefined,
+    scores,
     priors: munPriors, level: 'municipio', params: munParams, prepared: prepMun,
     obs: munObs, national: nat, curves, now: (USE_TSE_CLOCK && tseDate(nat.dg, nat.hg)) || new Date(), start: START, source: 'worker', prev,
     priorSource: livePrior.source,
   });
-  state.forecast.methods.splice(1, 0, { id: 'bayes-uf', name: 'BAYES POR ESTADO', desc: 'O mesmo modelo, só com os totais das 27 UFs + exterior', lulaPct: ufRun.lulaQ.mean, winProbLula: ufRun.winProbLula });
+  const bIdx = state.forecast.methods.findIndex((x) => x.id === 'bayes');
+  state.forecast.methods.splice(bIdx + 1, 0, { id: 'bayes-uf', name: 'BAYES POR ESTADO', desc: 'O mesmo modelo, só com os totais das 27 UFs + exterior', lulaPct: ufRun.lulaQ.mean, winProbLula: ufRun.winProbLula, weight: counting ? comboWeight(natPct) : 0, mae1: scores?.['bayes-uf']?.mae1, mae5: scores?.['bayes-uf']?.mae5 });
   // municípios ainda sem resultado baixado, mas com UF reportando → usa o total da UF para a fração apurada do mapa
   for (const s of state.states) {
     const u = ufObs.get(s.uf);
@@ -202,7 +207,7 @@ http.createServer((req, res) => {
   if (req.url?.startsWith('/state.json') && prev) { res.setHeader('Content-Type', 'application/json'); res.end(publishable(prev)); return; }
   if (req.url?.startsWith('/health')) { res.end(JSON.stringify({ ok: true, cycle, last: prev?.generatedAt })); return; }
   res.statusCode = 404; res.end('not found');
-}).listen(PORT, () => log(`🕹  worker no ar — http://localhost:${PORT}/state.json ${BLOB_TOKEN ? '· publicando no Vercel Blob' : '· (sem BLOB_READ_WRITE_TOKEN: só local)'}`));
+}).on('error', (e) => log(`⚠ servidor local indisponível (${(e as Error).message}) — seguindo só com o Blob`)).listen(PORT, () => log(`🕹  worker no ar — http://localhost:${PORT}/state.json ${BLOB_TOKEN ? '· publicando no Vercel Blob' : '· (sem BLOB_READ_WRITE_TOKEN: só local)'}`));
 
 log(`prior: Lula ${munParams.priorLula}% ± ${munParams.priorSd} · α=${munParams.alpha} · curvas ${curveKey} · ${munPriors.length} municípios`);
 loop();

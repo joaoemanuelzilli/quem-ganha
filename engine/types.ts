@@ -47,6 +47,9 @@ export interface MethodResult {
   lulaPct: number;     // % dos válidos projetado ao final
   winProbLula?: number;
   weight?: number;     // peso no ensemble
+  mae1?: number | null; // erro histórico (pp) com 1% apurado — backtest das presidenciais
+  mae5?: number | null; // idem com 5%
+  official?: boolean;   // é a previsão oficial do site
 }
 
 export interface TrajectoryPoint {

@@ -2,6 +2,7 @@
 import { UF_NAMES } from './tse';
 import { NE_UFS, prepare, run, type ModelParams, type PreparedModel, type RunResult } from './model';
 import { trajectory, type Curves } from './trajectory';
+import { invLogit, logit, quantile } from './random';
 import type { CandKey, Candidate, ForecastState, GameEvent, HistoryPoint, StateRow, Thermometers, UnitObs, UnitPrior } from './types';
 
 export const CANDIDATES: Candidate[] = [
@@ -30,6 +31,18 @@ export interface BuildInput {
   prev?: ForecastState | null;
   priorSource?: string;
   prepared?: PreparedModel;   // cache
+  /** COMBO: mistura com o modelo por UF (que erra menos no comecinho). */
+  blend?: { uf: RunResult; weight: number };
+  /** erro histórico de cada método (data/model/method_scores.json) */
+  scores?: Record<string, { mae1: number | null; mae5: number | null }>;
+}
+
+/** peso do modelo por UF no COMBO: 75% até 1% apurado, caindo a 0 em 5% (backtest das presidenciais) */
+export function comboWeight(pct: number): number {
+  if (pct <= 0) return 0;
+  if (pct <= 1) return 0.75;
+  if (pct >= 5) return 0;
+  return 0.75 * (5 - pct) / 4;
 }
 
 const pctf = (x: number) => x.toFixed(1).replace('.', ',');
@@ -40,6 +53,39 @@ export function buildForecast(inp: BuildInput): { state: ForecastState; prepared
   const m = inp.prepared ?? prepare(inp.priors, inp.level, inp.params);
   const r = run(m, inp.obs);
   const tr = trajectory(m, r, inp.curves, inp.now, start);
+  const munMean = r.lulaQ.mean, munWin = r.winProbLula;
+
+  // ── COMBO: desloca a distribuição municipal na direção do modelo por UF (em logit) ──
+  const w = inp.blend?.weight ?? 0;
+  if (inp.blend && w > 0) {
+    const shift = w * (logit(inp.blend.uf.lulaQ.mean / 100) - logit(munMean / 100));
+    const d = r.finalLula.map((x) => 100 * invLogit(logit(x / 100) + shift));
+    const s = Float64Array.from(d).sort();
+    let mu = 0, wins = 0;
+    for (const x of d) { mu += x; if (x > 50) wins++; }
+    mu /= d.length;
+    r.finalLula = d;
+    r.lulaQ = { mean: mu, p05: quantile(s, 0.05), p25: quantile(s, 0.25), p50: quantile(s, 0.5), p75: quantile(s, 0.75), p95: quantile(s, 0.95) };
+    r.winProbLula = wins / d.length;
+    const ratio = mu / munMean;
+    r.projVotes = { ...r.projVotes, lula: r.projVotes.lula * ratio, flavio: r.projVotes.validos - r.projVotes.lula * ratio };
+    // a trajetória termina na previsão do COMBO: ajuste proporcional ao que falta apurar
+    const p0 = tr.points[0]?.pct ?? 0;
+    for (const pt of tr.points) {
+      const k = p0 >= 100 ? 1 : (pt.pct - p0) / (100 - p0);
+      const dl = (mu - munMean) * k;
+      pt.lula = { p05: pt.lula.p05 + dl, p50: pt.lula.p50 + dl, p95: pt.lula.p95 + dl };
+    }
+    r.methods = [
+      { id: 'combo', name: 'COMBO FINAL', desc: `Mistura do Bayes por município (${Math.round(100 * (1 - w))}%) com o Bayes por estado (${Math.round(100 * w)}%): no comecinho o por estado erra menos; a partir de 5% só o municipal`, lulaPct: mu, winProbLula: r.winProbLula, official: true },
+      ...r.methods.map((x) => (x.id === 'bayes' ? { ...x, weight: 1 - w, official: false } : x)),
+    ];
+  }
+  for (const x of r.methods) {
+    if (x.id === 'bayes' && !(inp.blend && w > 0)) { x.official = true; x.weight = 1; x.lulaPct = munMean; x.winProbLula = munWin; }
+    const sc = inp.scores?.[x.id];
+    if (sc) { x.mae1 = sc.mae1; x.mae5 = sc.mae5; }
+  }
 
   const nat: National = inp.national ?? {
     dg: '', hg: '', secoes: r.counted.secoes, secoesTot: r.counted.secoesTot, aptos: r.counted.aptos, aptosTot: r.counted.aptosTot,
