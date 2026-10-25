@@ -252,7 +252,7 @@ curl localhost:8787/health                   # está vivo?
 
 - A cada 10 min (e no fim), o worker grava um snapshot da previsão no branch **[`ao-vivo`](https://github.com/joaoemanuelzilli/quem-ganha/tree/ao-vivo)**. É um registro público, com horário, do que o modelo dizia **antes** de o resultado sair. O primeiro snapshot é a previsão pré-apuração.
 - Se o worker cair, `run-worker.sh` o reinicia em 5 s. Se o PC desligar, o site continua funcionando: o navegador de cada visitante baixa os totais do TSE e roda o modelo por estado.
-- Para testar o site contra um worker de ensaio: `/?worker=http://localhost:8788/state.json`.
+- Para testar o site contra um worker de ensaio: `/?worker=http://localhost:8788/state.json`. Só funciona com o site rodando em `localhost`; no domínio público o parâmetro é ignorado, para ninguém exibir dados de outra fonte com a cara do site.
 
 **Dados históricos** (opcional, ~6 GB de download): `training/run_all.sh` baixa os boletins de urna do portal de dados abertos do TSE e gera os arquivos compactos de `data/processed/`. Veja [training/README_DATA.md](training/README_DATA.md).
 

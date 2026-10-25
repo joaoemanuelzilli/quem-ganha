@@ -31,7 +31,11 @@ const params = new URLSearchParams(location.search);
 
 export function startFeed(onState: (s: ForecastState, meta: FeedMeta) => void): () => void {
   if (params.has('demo')) return startMock(onState);
-  const workerUrl = params.get('worker') ?? (params.has('local') ? LOCAL_URL : WORKER_URL);
+  // ?worker= só vale em testes locais (página E worker em localhost): no domínio público é ignorado,
+  // para ninguém compartilhar um link do site exibindo uma "previsão" vinda de outra fonte.
+  const override = safeTestWorker(params.get('worker'));
+  const workerUrl = override ?? (params.has('local') ? LOCAL_URL : WORKER_URL);
+  const persist = !override; // nunca grava no navegador dados de uma fonte de teste
 
   let worker: ForecastState | null = null;
   let workerAt = 0;
@@ -48,7 +52,14 @@ export function startFeed(onState: (s: ForecastState, meta: FeedMeta) => void): 
   const cu = curvesUF as unknown as { K: number } & Record<string, { nat: number[]; uf: Record<string, number[]> }>;
   const curves: Curves = { K: cu.K, ...(cu[livePrior.curves] ?? cu['2022_t2']) };
   let savedHist: ForecastState['history'] = [];
-  try { const h = localStorage.getItem(HIST_KEY); if (h) savedHist = JSON.parse(h); } catch { /* sem storage */ }
+  try {
+    const h = localStorage.getItem(HIST_KEY);
+    const arr: unknown = h ? JSON.parse(h) : [];
+    // só aceita pontos bem formados (proteção contra dados corrompidos)
+    if (Array.isArray(arr)) savedHist = arr.filter((x): x is ForecastState['history'][number] =>
+      !!x && typeof x.t === 'string' && [x.pct, x.lulaPct, x.projLulaPct, x.projLo, x.projHi, x.winProbLula].every((v) => typeof v === 'number' && Number.isFinite(v))
+      && x.pct >= 0 && x.pct <= 100 && x.lulaPct >= 0 && x.lulaPct <= 100 && x.winProbLula >= 0 && x.winProbLula <= 1);
+  } catch { /* sem storage */ }
 
   const emit = () => {
     const now = Date.now();
@@ -96,7 +107,7 @@ export function startFeed(onState: (s: ForecastState, meta: FeedMeta) => void): 
         state.history = [...savedHist.filter((h) => h.t < first), ...state.history];
       }
       browser = state; browserAt = Date.now(); lastErr = undefined;
-      try { localStorage.setItem(HIST_KEY, JSON.stringify(state.history.slice(-600))); } catch { /* cheio */ }
+      if (persist) try { localStorage.setItem(HIST_KEY, JSON.stringify(state.history.slice(-600))); } catch { /* cheio */ }
     } catch (e) { lastErr = `TSE: ${(e as Error).message}`; }
     emit();
   }
@@ -109,4 +120,13 @@ export function startFeed(onState: (s: ForecastState, meta: FeedMeta) => void): 
   schedule(pollWorker, () => 30_000); // o Blob tem cache de 60 s; mais que isso não traz nada novo
   schedule(pollTSE, tseEvery);
   return () => { stopped = true; timers.forEach(clearTimeout); };
+}
+
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+function safeTestWorker(raw: string | null): string | null {
+  if (!raw || !LOCAL_HOSTS.has(location.hostname)) return null;
+  try {
+    const u = new URL(raw);
+    return (u.protocol === 'http:' || u.protocol === 'https:') && LOCAL_HOSTS.has(u.hostname) ? u.toString() : null;
+  } catch { return null; }
 }
