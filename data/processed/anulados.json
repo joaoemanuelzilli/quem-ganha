@@ -1,0 +1,236 @@
+{
+ "2018_t1_c1": {},
+ "2018_t2_c1": {},
+ "2022_t1_c1": {},
+ "2022_t1_c3_AL": {},
+ "2022_t1_c3_AM": {
+  "36": {
+   "nome": "NAIR BLAIR",
+   "votos_nominais": 1895,
+   "votos_validos": 0
+  }
+ },
+ "2022_t1_c3_BA": {
+  "29": {
+   "nome": "MARCELO MILLET",
+   "votos_nominais": 826,
+   "votos_validos": 0
+  }
+ },
+ "2022_t1_c3_ES": {},
+ "2022_t1_c3_MS": {
+  "29": {
+   "nome": "MAGNO DE SOUZA",
+   "votos_nominais": 2892,
+   "votos_validos": 0
+  }
+ },
+ "2022_t1_c3_PB": {
+  "29": {
+   "nome": "ADRIANO TRAJANO",
+   "votos_nominais": 280,
+   "votos_validos": 0
+  }
+ },
+ "2022_t1_c3_PE": {
+  "29": {
+   "nome": "UBIRACY OLÍMPIO",
+   "votos_nominais": null,
+   "votos_validos": 0,
+   "obs": "ausente/zerado no oficial; no BWEB aparece como nominal (nulo técnico)"
+  }
+ },
+ "2022_t1_c3_RO": {},
+ "2022_t1_c3_RS": {
+  "29": {
+   "nome": "CESAR AUGUSTO",
+   "votos_nominais": null,
+   "votos_validos": 0,
+   "obs": "ausente/zerado no oficial; no BWEB aparece como nominal (nulo técnico)"
+  }
+ },
+ "2022_t1_c3_SC": {
+  "29": {
+   "nome": "LEANDRO BORGES",
+   "votos_nominais": 829,
+   "votos_validos": 0
+  }
+ },
+ "2022_t1_c3_SE": {
+  "22": {
+   "nome": "VALMIR DE FRANCISQUINHO",
+   "votos_nominais": null,
+   "votos_validos": 0,
+   "obs": "ausente/zerado no oficial; no BWEB aparece como nominal (nulo técnico)"
+  }
+ },
+ "2022_t1_c3_SP": {},
+ "2022_t2_c1": {},
+ "2026_t1_c1": {
+  "28": {
+   "nome": "LEONARDO AVALANCHE",
+   "votos_nominais": null,
+   "votos_validos": 0,
+   "obs": "ausente/zerado no oficial; no BWEB aparece como nominal (nulo técnico)"
+  }
+ },
+ "2026_t1_c3_AC": {},
+ "2026_t1_c3_AL": {},
+ "2026_t1_c3_AM": {},
+ "2026_t1_c3_AP": {},
+ "2026_t1_c3_BA": {},
+ "2026_t1_c3_CE": {},
+ "2026_t1_c3_DF": {
+  "36": {
+   "nome": "ELISSON",
+   "votos_nominais": 1172,
+   "votos_validos": 0
+  },
+  "28": {
+   "nome": "RICO PINHEIRO",
+   "votos_nominais": 671,
+   "votos_validos": 0
+  },
+  "55": {
+   "nome": "ARRUDA",
+   "votos_nominais": null,
+   "votos_validos": 0,
+   "obs": "ausente/zerado no oficial; no BWEB aparece como nominal (nulo técnico)"
+  }
+ },
+ "2026_t1_c3_ES": {},
+ "2026_t1_c3_GO": {},
+ "2026_t1_c3_MA": {
+  "28": {
+   "nome": "ROBERTO ROCHA",
+   "votos_nominais": 48924,
+   "votos_validos": 0
+  }
+ },
+ "2026_t1_c3_MG": {
+  "29": {
+   "nome": "HENRIQUE ÁREAS",
+   "votos_nominais": 1464,
+   "votos_validos": 0
+  }
+ },
+ "2026_t1_c3_MS": {},
+ "2026_t1_c3_MT": {},
+ "2026_t1_c3_PA": {
+  "35": {
+   "nome": "RUTH REIS",
+   "votos_nominais": 1987,
+   "votos_validos": 0
+  }
+ },
+ "2026_t1_c3_PB": {
+  "27": {
+   "nome": "PEDRO COUTINHO",
+   "votos_nominais": null,
+   "votos_validos": 0,
+   "obs": "ausente/zerado no oficial; no BWEB aparece como nominal (nulo técnico)"
+  }
+ },
+ "2026_t1_c3_PE": {},
+ "2026_t1_c3_PI": {
+  "35": {
+   "nome": "RAVENNA DA INCLUSÃO",
+   "votos_nominais": 819,
+   "votos_validos": 0
+  },
+  "29": {
+   "nome": "LOURDES MELO",
+   "votos_nominais": 1296,
+   "votos_validos": 0
+  },
+  "27": {
+   "nome": "PROFESSOR JURITY",
+   "votos_nominais": 1102,
+   "votos_validos": 0
+  },
+  "16": {
+   "nome": "GERALDO CARVALHO",
+   "votos_nominais": 1858,
+   "votos_validos": 0
+  }
+ },
+ "2026_t1_c3_PR": {
+  "29": {
+   "nome": "ADRIANO FUNILEIRO",
+   "votos_nominais": 1525,
+   "votos_validos": 0
+  }
+ },
+ "2026_t1_c3_RJ": {
+  "10": {
+   "nome": "GAROTINHO",
+   "votos_nominais": null,
+   "votos_validos": 0,
+   "obs": "ausente/zerado no oficial; no BWEB aparece como nominal (nulo técnico)"
+  }
+ },
+ "2026_t1_c3_RN": {
+  "29": {
+   "nome": "HENRIQUE LYRA",
+   "votos_nominais": 227,
+   "votos_validos": 0
+  },
+  "50": {
+   "nome": "PROFESSOR ROBERIO PAULINO",
+   "votos_nominais": null,
+   "votos_validos": 0,
+   "obs": "ausente/zerado no oficial; no BWEB aparece como nominal (nulo técnico)"
+  }
+ },
+ "2026_t1_c3_RO": {},
+ "2026_t1_c3_RR": {
+  "29": {
+   "nome": "CLÉBIO GENUÍNO",
+   "votos_nominais": 77,
+   "votos_validos": 0
+  }
+ },
+ "2026_t1_c3_RS": {
+  "29": {
+   "nome": "CESAR PONTES",
+   "votos_nominais": 2137,
+   "votos_validos": 0
+  }
+ },
+ "2026_t1_c3_SC": {},
+ "2026_t1_c3_SE": {
+  "50": {
+   "nome": "DR. HELTON",
+   "votos_nominais": 37081,
+   "votos_validos": 0
+  },
+  "22": {
+   "nome": "RICARDO MARQUES",
+   "votos_nominais": null,
+   "votos_validos": 0,
+   "obs": "ausente/zerado no oficial; no BWEB aparece como nominal (nulo técnico)"
+  },
+  "45": {
+   "nome": "EMANUEL CACHO",
+   "votos_nominais": null,
+   "votos_validos": 0,
+   "obs": "ausente/zerado no oficial; no BWEB aparece como nominal (nulo técnico)"
+  }
+ },
+ "2026_t1_c3_SP": {
+  "29": {
+   "nome": "IZADORA DIAS",
+   "votos_nominais": null,
+   "votos_validos": 0,
+   "obs": "ausente/zerado no oficial; no BWEB aparece como nominal (nulo técnico)"
+  }
+ },
+ "2026_t1_c3_TO": {
+  "35": {
+   "nome": "SIQUEIRA CAMPOS JR",
+   "votos_nominais": null,
+   "votos_validos": 0,
+   "obs": "ausente/zerado no oficial; no BWEB aparece como nominal (nulo técnico)"
+  }
+ }
+}
