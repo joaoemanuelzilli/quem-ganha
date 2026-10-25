@@ -47,7 +47,7 @@ btnSound.addEventListener('click', () => { sfx.setMuted(!sfx.muted); paintSound(
 paintSound();
 
 // ---------------------------------------------------------------- topo e rodapé
-const STAGES = ['Primeiras urnas', 'Aquecimento', 'Troca de golpes', 'Pressão total', 'Metade do caminho', 'Reta decisiva', 'Contra-ataque', 'Últimos combos', 'Sprint final', 'Últimas seções'];
+const STAGES = ['Primeiras urnas', 'Primeiros golpes', 'Troca de golpes', 'Pressão total', 'Metade do caminho', 'Reta decisiva', 'Contra-ataque', 'Últimos combos', 'Sprint final', 'Últimas seções'];
 const MODE_TXT: Record<FeedMeta['mode'], string> = { demo: 'MODO DEMO', worker: 'AO VIVO', browser: 'AO VIVO', pre: 'PRÉ-JOGO' };
 
 function paintTop(s: ForecastState, meta: FeedMeta): void {

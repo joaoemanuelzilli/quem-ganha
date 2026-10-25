@@ -31,7 +31,7 @@ const params = new URLSearchParams(location.search);
 
 export function startFeed(onState: (s: ForecastState, meta: FeedMeta) => void): () => void {
   if (params.has('demo')) return startMock(onState);
-  const workerUrl = params.has('local') ? LOCAL_URL : WORKER_URL;
+  const workerUrl = params.get('worker') ?? (params.has('local') ? LOCAL_URL : WORKER_URL);
 
   let worker: ForecastState | null = null;
   let workerAt = 0;
