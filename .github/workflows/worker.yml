@@ -10,10 +10,7 @@ on:
       handover:
         description: 'Troca de turno antes da apuração (ISO, horário de Brasília)'
         default: '2026-10-25T16:40:00-03:00'
-  schedule:
-    # reservas, caso a corrente de turnos se rompa (16:15 e 16:35 em Brasília)
-    - cron: '15 19 25 10 *'
-    - cron: '35 19 25 10 *'
+  # (agendamentos desligados: na noite de 25/10 o worker roda no notebook; dispare manualmente se quiser a nuvem)
 
 permissions:
   contents: write   # snapshots no branch ao-vivo
