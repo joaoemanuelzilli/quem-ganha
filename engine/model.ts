@@ -21,6 +21,9 @@
 //  regiões remotas reportam por último). Isso entra como choques comuns ζ
 //  (nacional) e ζ_uf aplicados só aos votos restantes, com variância ∝ fração
 //  restante — aprendidos no backtest. É o que mantém os intervalos honestos.
+//  Além disso, um viés médio μ (muLate) nos votos que faltam: no Brasil o voto que chega
+//  por último é sistematicamente mais petista do que o swing dos primeiros sugere
+//  (2022 1T, 2022 2T e 2026 1T mostram ~+0,045 logit) — também aprendido no backtest.
 //
 //  A posteriori de (δ, β) é gaussiana exata (GLS com efeitos aleatórios por região
 //  via Sherman–Morrison). Depois sorteamos N cenários: θ → u_r → ε_i → ζ →
@@ -43,6 +46,7 @@ export interface ModelParams {
   sigmaOrd: number;     // viés de ordem de apuração dentro da unidade (logit)
   sigmaZeta: number;    // choque comum nos votos restantes (nacional, logit)
   sigmaZetaUF: number;  // choque comum nos votos restantes (por UF, logit)
+  muLate: number;       // viés médio dos votos que chegam por último (logit, + = PT): a 'virada do PT'
   turnoutK: number;     // nº de eleitores para confiar 50% no comparecimento observado
   turnoutSd: number;    // incerteza relativa do comparecimento nacional
   draws: number;
@@ -52,7 +56,7 @@ export interface ModelParams {
 export const DEFAULT_MUN_PARAMS: ModelParams = {
   alpha: 0.45, priorLula: 49.0, priorSd: 2.5, sigmaBeta: 2.0, sigmaBeta2: 0.15,
   sigmaU: 0.08, sigmaE: 0.11, sigmaESmall: 0.08, sigmaSec: 0.6, sigmaOrd: 0.04,
-  sigmaZeta: 0.04, sigmaZetaUF: 0.04,
+  sigmaZeta: 0.04, sigmaZetaUF: 0.04, muLate: 0,
   turnoutK: 3000, turnoutSd: 0.012, draws: 2000, seed: 42,
 };
 
@@ -275,6 +279,10 @@ export function run(m: PreparedModel, obs: Map<string, UnitObs>): RunResult {
   for (let u = 0; u < U; u++) ufRemFrac[u] = ufSec[u] > 0 ? ufRemFrac[u] / ufSec[u] : 1;
   const natRemFrac = natSec > 0 ? natRem / natSec : 1;
   const zetaNatSd = p.sigmaZeta * Math.sqrt(natRemFrac); // máximo no início (o que chegou primeiro é pouco representativo), 0 no fim
+  // viés de chegada tardia: só entra na medida em que a estimativa já vem dos dados (não do prior)
+  const dataWeight = Math.max(0, 1 - Cov[0] * priorPrec[0]);
+  // entra aos poucos nos primeiros 5% apurados (os primeiríssimos votos — exterior, DF — têm padrão próprio)
+  const lateShift = (p.muLate ?? 0) * dataWeight * Math.min(1, (1 - natRemFrac) / 0.05);
 
   const obsOfUnit = new Int32Array(n).fill(-1);
   for (let j = 0; j < oI.length; j++) obsOfUnit[oI[j]] = j;
@@ -324,7 +332,7 @@ export function run(m: PreparedModel, obs: Map<string, UnitObs>): RunResult {
       let remShare = cValid[i] > 0 ? (yFinal * total - cLula[i]) / remV : yFinal;
       if (remShare < 0) remShare = 0; else if (remShare > 1) remShare = 1;
       // choques comuns no que falta apurar
-      const remL = remV * invLogit(logit(Math.min(0.999, Math.max(0.001, remShare))) + zetaNat + zU[u]);
+      const remL = remV * invLogit(logit(Math.min(0.999, Math.max(0.001, remShare))) + lateShift + zetaNat + zU[u]);
       ufL[u] += remL; ufV[u] += remV;
       uRemL[i] += remL; uRemV[i] += remV;
     }

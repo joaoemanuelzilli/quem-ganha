@@ -127,7 +127,8 @@ export function pollBiasExcluding(key: string): number {
 
 function evaluate(lc: LoadedCase, params: ModelParams, level: 'municipio' | 'uf'): Metric[] {
   const prior = lc.def.poll === null ? null : lc.def.poll + pollBiasExcluding(lc.def.key);
-  const pr = { ...params, priorLula: prior, priorSd: lc.def.pollSd };
+  // a 'virada do PT' só existe quando A = PT (presidenciais); nos governadores A é arbitrário
+  const pr = { ...params, priorLula: prior, priorSd: lc.def.pollSd, muLate: lc.def.kind === 'presidente' ? params.muLate : 0 };
   const m = prepare(level === 'uf' ? lc.ufPriors : lc.priors, level, pr);
   const out: Metric[] = [];
   for (const s of lc.snaps) {
@@ -169,7 +170,7 @@ function summarize(ms: Metric[]) {
 
 function sample(rng: Rng, base: ModelParams): ModelParams {
   const lu = (lo: number, hi: number) => Math.exp(Math.log(lo) + rng.uniform() * (Math.log(hi) - Math.log(lo)));
-  return { ...base, sigmaOrd: lu(0.02, 0.35), sigmaSec: lu(0.08, 0.9), sigmaE: lu(0.02, 0.25), sigmaESmall: lu(0.01, 0.3), sigmaU: lu(0.01, 0.3), sigmaBeta: lu(0.2, 6), sigmaBeta2: lu(0.01, 0.5), sigmaZeta: lu(0.005, 0.2), sigmaZetaUF: lu(0.005, 0.2), alpha: 0.15 + rng.uniform() * 0.6 };
+  return { ...base, sigmaOrd: lu(0.02, 0.35), sigmaSec: lu(0.08, 0.9), muLate: base.muLate, sigmaE: lu(0.02, 0.25), sigmaESmall: lu(0.01, 0.3), sigmaU: lu(0.01, 0.3), sigmaBeta: lu(0.2, 6), sigmaBeta2: lu(0.01, 0.5), sigmaZeta: lu(0.005, 0.2), sigmaZetaUF: lu(0.005, 0.2), alpha: 0.15 + rng.uniform() * 0.6 };
 }
 
 async function main() {
@@ -192,6 +193,13 @@ async function main() {
   const evalAll = (p: ModelParams, level: 'municipio' | 'uf', draws: number, sub = loaded) =>
     sub.filter((l) => level === 'municipio' || l.def.kind === 'presidente').flatMap((l) => evaluate(l, { ...p, draws }, level));
 
+  for (const kv of args.filter((a) => a.startsWith('--set=')).map((a) => a.slice(6).split('='))) { (mun as unknown as Record<string, number>)[kv[0]] = Number(kv[1]); (uf as unknown as Record<string, number>)[kv[0]] = Number(kv[1]); }
+  if (args.includes('--eval-only')) {
+    const level = (args[args.indexOf('--eval-only') + 1] ?? 'municipio') as 'municipio' | 'uf';
+    const ms = evalAll(level === 'uf' ? uf : mun, level, 600);
+    console.log(JSON.stringify({ loss: loss(ms), sum: summarize(ms).map((r) => [r.cp, +r.maeBayes.toFixed(2), +r.cover90.toFixed(2)]) }));
+    return;
+  }
   const seedArg = args.includes('--seed') ? Number(args[args.indexOf('--seed') + 1]) : 0;
   const levelArg = args.includes('--level') ? args[args.indexOf('--level') + 1] : null;
   const outArg = args.includes('--out') ? args[args.indexOf('--out') + 1] : null;
@@ -259,8 +267,8 @@ async function main() {
 
 function perturb(rng: Rng, p: ModelParams): ModelParams {
   const j = (v: number) => v * Math.exp(0.35 * rng.normal());
-  return { ...p, sigmaOrd: j(p.sigmaOrd), sigmaSec: j(p.sigmaSec), sigmaE: j(p.sigmaE), sigmaESmall: j(p.sigmaESmall), sigmaU: j(p.sigmaU), sigmaBeta: j(p.sigmaBeta), sigmaBeta2: j(p.sigmaBeta2), sigmaZeta: j(p.sigmaZeta), sigmaZetaUF: j(p.sigmaZetaUF), alpha: Math.min(0.95, Math.max(0.05, p.alpha + 0.08 * rng.normal())) };
+  return { ...p, sigmaOrd: Math.min(0.4, j(p.sigmaOrd)), sigmaSec: j(p.sigmaSec), sigmaE: j(p.sigmaE), sigmaESmall: j(p.sigmaESmall), sigmaU: j(p.sigmaU), sigmaBeta: j(p.sigmaBeta), sigmaBeta2: j(p.sigmaBeta2), sigmaZeta: j(p.sigmaZeta), sigmaZetaUF: j(p.sigmaZetaUF), alpha: Math.min(0.95, Math.max(0.05, p.alpha + 0.08 * rng.normal())) };
 }
-const fmt = (p: ModelParams) => `ord=${p.sigmaOrd.toFixed(3)} sec=${p.sigmaSec.toFixed(3)} E=${p.sigmaE.toFixed(3)} Es=${p.sigmaESmall.toFixed(3)} U=${p.sigmaU.toFixed(3)} B=${p.sigmaBeta.toFixed(2)} B2=${p.sigmaBeta2.toFixed(3)} Z=${p.sigmaZeta.toFixed(3)} Zu=${p.sigmaZetaUF.toFixed(3)} a=${p.alpha.toFixed(2)}`;
+const fmt = (p: ModelParams) => `mu=${(p.muLate ?? 0).toFixed(3)} ord=${p.sigmaOrd.toFixed(3)} sec=${p.sigmaSec.toFixed(3)} E=${p.sigmaE.toFixed(3)} Es=${p.sigmaESmall.toFixed(3)} U=${p.sigmaU.toFixed(3)} B=${p.sigmaBeta.toFixed(2)} B2=${p.sigmaBeta2.toFixed(3)} Z=${p.sigmaZeta.toFixed(3)} Zu=${p.sigmaZetaUF.toFixed(3)} a=${p.alpha.toFixed(2)}`;
 
 main().catch((e) => { console.error(e); process.exit(1); });
