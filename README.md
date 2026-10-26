@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://quem-ganha.vercel.app"><img src="https://img.shields.io/badge/▶_PRESS_START-quem--ganha.vercel.app-ffd400?style=for-the-badge&labelColor=0e0b22" alt="Abrir o dashboard"></a>
+  <a href="#resultados"><img src="https://img.shields.io/badge/🏁_FIM_DE_JOGO-modelo_cravou_Lula_com_5%25_apurado-ffd400?style=for-the-badge&labelColor=0e0b22" alt="Ver os resultados"></a>
 </p>
 
 <p align="center">
@@ -20,7 +20,7 @@
  ╔══════════════════════════════════════════════════════════════════════╗
  ║  P1 LULA  ▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░   VS   ░░░░░░░░▓▓▓▓▓▓▓▓▓▓▓▓  FLÁVIO P2  ║
  ║                                                                      ║
- ║   17:00 ▸ urnas fecham    17:13 ▸ 1% apurado    ~20:30 ▸ 100%        ║
+ ║   19:02 ▸ começa a apuração   19:29 ▸ LULA PROJETADO   22:45 ▸ 100%  ║
  ║                                                                      ║
  ║   O placar da TV MENTE no começo: o Sul chega primeiro, o Nordeste   ║
  ║   por último. Em 2022 Bolsonaro "liderou" até 68% — e perdeu.        ║
@@ -28,21 +28,60 @@
  ╚══════════════════════════════════════════════════════════════════════╝
 ```
 
+<a id="resultados"></a>
+
+<img src="docs/img/stage-results.svg" width="100%" alt="Fim de jogo: resultados">
+
+> 🏆 **O modelo cravou a vitória de Lula às 19h29 de 25/10, com 5% das urnas apuradas.** Isso foi 56 minutos antes de Lula assumir de vez a liderança no placar (20h25, com 47% apurado) e 1h40 antes da vitória matemática (21h09). **Resultado final: Lula 51,79% × Flávio 48,21%.**
+
+<p align="center"><img src="docs/img/result-final.png" width="100%" alt="Painel real no fim da noite: placar final, linha da apuração e linha da previsão do modelo ao longo da noite"></p>
+<p align="center"><sub><b>O painel real no fim da noite.</b> Linha cheia = placar ao longo da apuração (Flávio chegou a liderar entre 19h45 e 20h24). Linha fina = a previsão do modelo, que cravou Lula com 5% apurado e convergiu para 51,8%.</sub></p>
+
+| Horário (Brasília) | % apurado | Placar: Lula | Previsão do modelo: Lula | Chance de Lula | O que aconteceu |
+|---|---:|---:|---:|---:|---|
+| 11h42 | 0% | — | 47,4% (43,5–51,3) | 14% | previsão pré-apuração (pesquisas corrigidas) |
+| 17h07 | 0,25% | 57,7% | 47,5% | 14% | primeiros números: só o **exterior** |
+| 19h02 | 0,3% | 56,7% | 50,4% | 57% | começa a apuração no Brasil; o modelo passa a favorecer Lula e não muda mais |
+| 19h05 | 1,5% | 52,3% | 51,6% | 78% | "vantagem Lula" |
+| 19h17 | 2% | 51,8% | 51,9% | 85% | previsão a 0,07 ponto do resultado final |
+| **19h29** | **5%** | 51,2% | **53,8%** (52,2–55,5) | **>99%** | 🏆 **VITÓRIA PROJETADA: LULA** |
+| 19h45 – 20h24 | 14% – 47% | **Flávio na frente** (até 50,5%) | 52,1% – 52,7% | >99% | o placar mostra Flávio liderando; o modelo mantém Lula |
+| 20h25 | 47% | 50,0% | 52,2% | 100% | Lula passa à frente no placar, de vez |
+| 21h09 | 97,7% | 51,7% | 51,9% | 100% | vitória matemática |
+| 22h45 | 100% | **51,79%** | 51,79% | — | resultado final |
+
+**Previsão × resultado** (Lula, % dos válidos; final = 51,79%):
+
+| % apurado | 1% | 2% | 5% | 10% | 20% | 50% | 90% |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| previsão | 50,8% | 51,9% | 53,8% | 53,0% | 52,2% | 52,2% | 52,0% |
+| erro (pontos) | −1,0 | **+0,07** | +2,0 | +1,3 | +0,45 | +0,39 | +0,17 |
+
+**O que deu certo e o que não deu:**
+
+- ✅ **Vencedor certo desde o início da apuração no Brasil.** A partir das 19h02 o modelo sempre apontou Lula como favorito, e cravou com 5% apurado, inclusive durante os 40 minutos em que o placar mostrava Flávio na frente.
+- ✅ **Convergência.** A partir de ~20% apurado, a previsão nunca se afastou mais de 0,46 ponto do resultado final.
+- ⚠️ **A margem foi superestimada no começo.** Entre 5% e 10% apurado, a previsão chegou a 53,8%. Às 19h29 o intervalo de 90% (52,2–55,5) **não** continha o resultado final. O vencedor estava certo, mas a confiança na margem foi alta demais naquele momento.
+- ⚠️ **Horário.** Os números das 17h07 eram só do exterior; a apuração no Brasil começou por volta das 19h. Como o worker contava o relógio a partir das 17h, o "fim previsto" exibido durante a noite ficou errado. A previsão do resultado não usa o horário e não foi afetada.
+- 📼 **Prova com horário:** o worker gravou automaticamente no branch [`ao-vivo`](https://github.com/joaoemanuelzilli/quem-ganha/tree/ao-vivo) um snapshot a cada 10 minutos. O das 19h29 ([`snapshots/20261025-1929.json`](https://github.com/joaoemanuelzilli/quem-ganha/blob/ao-vivo/snapshots/20261025-1929.json), commit `e3b3cb8`) registra: *"5,02% apurado · Lula 53,82% · P(Lula) 99,9%"*.
+
+<sub>Fonte dos números: [`history.ndjson`](https://github.com/joaoemanuelzilli/quem-ganha/blob/ao-vivo/history.ndjson), com os 1.231 ciclos do modelo durante a apuração, e os resultados oficiais do TSE. Depois da eleição o site foi tirado do ar; o código continua aqui.</sub>
+
 ## 🎮 GAMEPLAY
 
 <table>
 <tr>
-<td width="72%"><img src="docs/img/screen-title.png" alt="Tela de título: contagem regressiva para as 17h, VS, prior das pesquisas e Polymarket"></td>
-<td width="28%" rowspan="2"><img src="docs/img/screen-mobile.png" alt="Versão mobile: HUD de luta e medidor de chance de vitória"></td>
+<td width="72%"><img src="docs/img/screen-title.png" alt="Tela de título real às 11h45 de 25/10: contagem regressiva, VS, prior das pesquisas e Polymarket"></td>
+<td width="28%" rowspan="2"><img src="docs/img/screen-mobile.png" alt="Versão mobile às 19h29: HUD de luta e VITÓRIA PROJETADA: LULA"></td>
 </tr>
-<tr><td><sub><b>STAGE 0 — tela de título.</b> Contagem regressiva, prior das pesquisas e a cotação do Polymarket ao vivo. <b>JOGAR DEMO</b> simula uma apuração inteira em 90 s.</sub></td></tr>
+<tr><td><sub><b>STAGE 0: tela de título</b>, como estava às 11h45 de 25/10. Contagem regressiva, prior das pesquisas (Lula 47,4%) e a cotação do Polymarket (21% × 79%). À direita, o celular às 19h29.</sub></td></tr>
 </table>
 
 <p align="center"><img src="docs/img/screen-arena.png" width="100%" alt="Arena: HUD com barras de vida, gráfico da apuração com previsão do restante, chance de vitória, projeção final e termômetros de Minas e do Nordeste"></p>
-<p align="center"><sub><b>A ARENA.</b> Barras de vida = votos apurados · linha cheia = apuração até agora · faixa pontilhada = <b>previsão de como o resto da apuração vai se comportar</b> · medidor de chance de vitória · termômetros de Minas e do Nordeste.</sub></p>
+<p align="center"><sub><b>A ARENA às 19h29, no momento em que o modelo cravou Lula com 5% apurado.</b> Barras de vida = votos apurados · linha cheia = apuração até agora · faixa pontilhada = <b>previsão de como o resto da apuração vai se comportar</b> · medidor de chance de vitória · termômetros de Minas e do Nordeste.</sub></p>
 
 <p align="center"><img src="docs/img/screen-methods.png" width="100%" alt="Select your algorithm: cada método com sua previsão e seu erro histórico no backtest"></p>
-<p align="center"><sub><b>SELECT YOUR ALGORITHM.</b> Cada "personagem" é um método de previsão, com a <b>barra de erro histórico</b> medida no backtest. A carta dourada é a previsão oficial.</sub></p>
+<p align="center"><sub><b>SELECT YOUR ALGORITHM às 19h29.</b> Cada "personagem" é um método de previsão, com a <b>barra de erro histórico</b> medida no backtest. A carta dourada é a previsão oficial.</sub></p>
 
 <img src="docs/img/stage-select.svg" width="100%" alt="Escolha seu lutador">
 
@@ -232,7 +271,6 @@ npm run priors
 # 3) dashboard
 npm run dev                     # http://localhost:5173        (lê o worker na nuvem)
 #   http://localhost:5173/?local=1   → lê o worker local
-#   http://localhost:5173/?demo=1    → MODO DEMO: apuração simulada acelerada
 
 # 4) treino / backtest
 npm run backtest                # avalia nas 15 apurações reais

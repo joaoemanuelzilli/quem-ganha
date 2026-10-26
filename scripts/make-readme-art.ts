@@ -169,5 +169,6 @@ stage('stage-4.svg', 'STAGE 4', 'HIGH SCORES', '#ffd400');
 stage('stage-5.svg', 'STAGE 5', 'COMO JOGAR', '#e8222e');
 stage('stage-6.svg', 'STAGE 6', 'INVENTÁRIO', '#19c35a');
 stage('stage-7.svg', 'BONUS', 'LORE E FONTES', '#4d7cff');
+stage('stage-results.svg', 'FIM DE JOGO', 'RESULTADOS', '#ffd400');
 scores();
 console.log('arte gerada em', OUT);
