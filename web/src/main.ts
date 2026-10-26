@@ -1,7 +1,6 @@
-// QUEM GANHA? 2026 — orquestra o dashboard a partir do feed (ou da demo).
+// QUEM GANHA? 2026 — orquestra o dashboard a partir do feed ao vivo.
 import type { ForecastState } from '../../engine/types';
 import type { FeedMeta } from './feed';
-import { startMock } from './mock';
 import { $, fmtNum, timeHMS } from './format';
 import { Hud } from './hud';
 import { Arena } from './arena';
@@ -17,8 +16,6 @@ import { sfx } from './sound';
 import { confetti, roundSplash, startSky } from './fx';
 import { iconSvg } from './sprites';
 
-const params = new URLSearchParams(location.search);
-const demoParam = params.get('demo');
 
 startSky(document.getElementById('sky') as HTMLCanvasElement);
 
@@ -48,13 +45,13 @@ paintSound();
 
 // ---------------------------------------------------------------- topo e rodapé
 const STAGES = ['Primeiras urnas', 'Primeiros golpes', 'Troca de golpes', 'Pressão total', 'Metade do caminho', 'Reta decisiva', 'Contra-ataque', 'Últimos combos', 'Sprint final', 'Últimas seções'];
-const MODE_TXT: Record<FeedMeta['mode'], string> = { demo: 'MODO DEMO', worker: 'AO VIVO', browser: 'AO VIVO', pre: 'PRÉ-JOGO' };
+const MODE_TXT: Record<FeedMeta['mode'], string> = { worker: 'AO VIVO', browser: 'AO VIVO', pre: 'PRÉ-JOGO' };
 
 function paintTop(s: ForecastState, meta: FeedMeta): void {
   const badge = $('mode-badge');
-  const shown: FeedMeta['mode'] = s.status === 'pre' && meta.mode !== 'demo' ? 'pre' : meta.mode;
+  const shown: FeedMeta['mode'] = s.status === 'pre' ? 'pre' : meta.mode;
   badge.textContent = MODE_TXT[shown] ?? shown;
-  badge.title = meta.mode === 'demo' ? 'Apuração simulada para demonstração — não são dados reais' : meta.mode === 'pre' ? 'A apuração ainda não começou' : 'Dados reais do TSE';
+  badge.title = meta.mode === 'pre' ? 'A apuração ainda não começou' : 'Dados reais do TSE';
   badge.dataset.mode = shown;
   const st = $('stage');
   const n = st.querySelector('.stage-n')!;
@@ -77,7 +74,6 @@ footer.innerHTML = `
   <div class="fl">
     <a href="https://resultados.tse.jus.br/oficial/app/index.html#/eleicao/6258/uf/br/cargo/1/vis/nominal/resultados" target="_blank" rel="noopener">Resultados oficiais no TSE ↗</a>
     <a href="https://github.com/joaoemanuelzilli/quem-ganha" target="_blank" rel="noopener">Código no GitHub ↗</a>
-    <a data-f="demo" href="?demo=1">▶ Jogar demo</a>
   </div>
   <p class="disc">Projeto independente, não oficial. Previsão estatística — resultado oficial só no TSE.</p>`;
 const ff = (k: string) => footer.querySelector<HTMLElement>(`[data-f="${k}"]`)!;
@@ -85,21 +81,16 @@ let lastOk = 0;
 function paintFooter(s: ForecastState, meta: FeedMeta): void {
   const src = ff('src');
   src.dataset.mode = meta.mode;
-  src.textContent = meta.mode === 'demo' ? 'FONTE: DEMO (SIMULADA)' : meta.mode === 'worker' ? 'FONTE: WORKER' : meta.mode === 'browser' ? 'FONTE: NAVEGADOR' : 'FONTE: PRÉ-JOGO';
+  src.textContent = meta.mode === 'worker' ? 'FONTE: WORKER' : meta.mode === 'browser' ? 'FONTE: NAVEGADOR' : 'FONTE: PRÉ-JOGO';
   src.title = meta.error ?? '';
   lastOk = meta.lastOk;
-  lastMode = meta.mode;
   ff('upd').textContent = timeHMS(meta.lastOk);
   ff('tse').textContent = s.tse?.hg ? `${s.tse.dg ?? ''} ${s.tse.hg}`.trim() : '—';
-  const demo = ff('demo') as HTMLAnchorElement;
-  if (meta.mode === 'demo') { demo.textContent = '■ Sair da demo'; demo.href = location.pathname; }
-  else { demo.textContent = '▶ Jogar demo'; demo.href = '?demo=1'; }
 }
-let lastMode: FeedMeta['mode'] | null = null;
 setInterval(() => {
   if (!lastOk) return;
   const badge = $('mode-badge');
-  if (lastMode !== 'demo' && Date.now() - lastOk > 120_000) { badge.textContent = 'RECONECTANDO…'; badge.dataset.mode = 'stale'; badge.title = 'Sem dados novos há mais de 2 minutos — tentando de novo automaticamente'; }
+  if (Date.now() - lastOk > 120_000) { badge.textContent = 'RECONECTANDO…'; badge.dataset.mode = 'stale'; badge.title = 'Sem dados novos há mais de 2 minutos — tentando de novo automaticamente'; }
   const s = Math.max(0, Math.round((Date.now() - lastOk) / 1000));
   ff('ago').textContent = s < 5 ? '(agora)' : `(há ${s < 60 ? `${s} s` : `${Math.floor(s / 60)} min`})`;
 }, 1000);
@@ -111,8 +102,9 @@ let celebrated = '';
 function moments(s: ForecastState, meta: FeedMeta): void {
   const p = prev;
   if (s.status === 'pre') return;
-  // queda grande de % só significa reinício na DEMO (ao vivo pode ser só troca de fonte)
-  const restarted = !p || p.status === 'pre' || (meta.mode === 'demo' && s.progress.pct + 5 < p.progress.pct);
+  // queda de % ao vivo é só troca de fonte, nunca reinício
+  const restarted = !p || p.status === 'pre';
+  void meta;
   if (restarted && s.status === 'counting' && s.progress.pct < 5) {
     roundSplash('ROUND 1', 'FIGHT!');
     sfx.fight();
@@ -172,10 +164,8 @@ function onState(s: ForecastState, meta: FeedMeta): void {
   }
 }
 
-// A demo não depende do motor: o feed ao vivo é carregado sob demanda.
-if (demoParam === 'pre') startMock(onState, { pre: true });
-else if (demoParam != null && demoParam !== '0') startMock(onState);
-else {
+// o feed ao vivo é carregado sob demanda (se falhar, mostra o painel SEM SINAL)
+{
   import('./feed')
     .then((m) => m.startFeed(onState))
     .catch((err) => {
@@ -185,8 +175,7 @@ else {
       const pg = $('pregame');
       pg.hidden = false;
       pg.innerHTML = `<section class="panel feed-err">
-        <h2 class="panel-title">SEM SINAL<small>Não foi possível carregar os dados ao vivo. Recarregue a página em alguns segundos.</small></h2>
-        <a class="btn-play" href="?demo=1">JOGAR DEMO</a></section>`;
+        <h2 class="panel-title">SEM SINAL<small>Não foi possível carregar os dados ao vivo. Recarregue a página em alguns segundos.</small></h2></section>`;
       const badge = $('mode-badge');
       badge.textContent = 'OFFLINE';
       const src = footer.querySelector<HTMLElement>('[data-f="src"]');

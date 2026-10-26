@@ -6,7 +6,7 @@
 //     recente — então os números andam no ritmo do TSE, e a previsão municipal é sobreposta.
 //     Se o worker cair ou atrasar mais de 150 s, o navegador assume a previsão sozinho.
 //  Ao voltar para a aba (ou a internet voltar), atualiza na hora.
-//  ?demo=1  → simulação acelerada (mock)       ?local=1 → lê o worker em http://localhost:8787
+//  ?local=1 → lê o worker em http://localhost:8787
 import type { ForecastState, UnitObs } from '../../engine/types';
 import { DEFAULT_UF_PARAMS, prepare, type ModelParams } from '../../engine/model';
 import { buildForecast, COUNT_START, type National } from '../../engine/forecast';
@@ -18,10 +18,9 @@ import curvesUF from '../../data/model/curves_uf.json';
 import trained from '../../data/model/params.json';
 import livePrior from '../../data/model/live_prior.json';
 import scores from '../../data/model/method_scores.json';
-import { startMock } from './mock';
 
 export interface FeedMeta {
-  mode: 'worker' | 'browser' | 'demo' | 'pre';
+  mode: 'worker' | 'browser' | 'pre';
   lastOk: number;          // epoch ms do último dado bom
   error?: string;
 }
@@ -36,7 +35,6 @@ const params = new URLSearchParams(location.search);
 type Hist = ForecastState['history'][number];
 
 export function startFeed(onState: (s: ForecastState, meta: FeedMeta) => void): () => void {
-  if (params.has('demo')) return startMock(onState);
   // ?worker= só vale em testes locais (página E worker em localhost): no domínio público é ignorado,
   // para ninguém compartilhar um link do site exibindo uma "previsão" vinda de outra fonte.
   const override = safeTestWorker(params.get('worker'));

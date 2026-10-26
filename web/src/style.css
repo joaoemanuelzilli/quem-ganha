@@ -116,7 +116,6 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-v
 .mode-badge {
   font-family: var(--f-hud); font-size: 8px; line-height: 1; padding: 6px 8px; color: var(--sky0); background: var(--ink-2); white-space: nowrap;
 }
-.mode-badge[data-mode='demo'] { background: var(--gold); }
 .mode-badge[data-mode='worker'], .mode-badge[data-mode='browser'] { background: var(--flav-l); }
 .mode-badge[data-mode='worker']::before, .mode-badge[data-mode='browser']::before { content: '● '; color: var(--lula); }
 .mode-badge[data-mode='stale'] { background: #ff9f1c; color: #05061a; }
@@ -453,7 +452,6 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-v
 .footer .fl { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
 .footer b { font-weight: normal; color: var(--ink-2); }
 .footer .src { font-family: var(--f-hud); font-size: 8px; color: var(--sky0); background: var(--ink-2); padding: 5px 7px; }
-.footer .src[data-mode='demo'] { background: var(--gold); }
 .footer .src[data-mode='worker'], .footer .src[data-mode='browser'] { background: var(--flav-l); }
 .footer .disc { flex-basis: 100%; color: var(--ink-3); font-size: 19px; }
 

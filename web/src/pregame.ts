@@ -38,8 +38,7 @@ export class Pregame {
         </section>
         <section class="panel pg-box poly" aria-label="Polymarket"></section>
       </div>
-      <a class="btn-play" href="?demo=1"><svg width="14" height="14" viewBox="0 0 7 7" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="1" y="0" width="1" height="7"/><rect x="2" y="1" width="1" height="5"/><rect x="3" y="2" width="1" height="3"/><rect x="4" y="3" width="1" height="1"/></svg>JOGAR DEMO</a>
-      <p class="pg-note" style="margin-top:14px">A demo reproduz uma apuração simulada inteira em 90 segundos.</p>`;
+`;
     const [cl, cf] = root.querySelectorAll('canvas');
     drawPortrait(cl, 'lula', 'idle');
     drawPortrait(cf, 'flavio', 'idle', true);

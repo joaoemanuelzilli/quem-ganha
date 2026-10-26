@@ -34,7 +34,7 @@ export class BattleLog {
       return newestFirst ? idx.get(a)! - idx.get(b)! : idx.get(b)! - idx.get(a)!;
     });
     const keys = new Set(evs.map(keyOf));
-    // reinício da demo: eventos antigos sumiram
+    // lista de eventos trocada por completo (ex.: troca de fonte): recomeça
     const reset = this.seen.size > 0 && [...this.seen].every((k) => !keys.has(k));
     if (reset || this.first) {
       this.list.replaceChildren();

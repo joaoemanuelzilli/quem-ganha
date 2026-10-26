@@ -174,7 +174,7 @@ export class Arena {
     this.state = s;
     const g = buildGeo(s);
     const prev = this.cur;
-    // reinício da demo (ou primeira carga): sem animação de volta
+    // primeira carga: sem animação de volta
     const restart = !prev || g.head + 5 < prev.head;
     this.from = restart ? g : prev;
     this.to = g;

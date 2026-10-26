@@ -26,7 +26,6 @@ export class Hud {
   private clock!: HTMLElement;
   private face: Record<CandKey, Face> = { lula: 'idle', flavio: 'idle' };
   private winner: CandKey | null = null;
-  private demoClock: string | null = null;
 
   constructor(private root: HTMLElement) {
     root.innerHTML = '';
@@ -79,7 +78,7 @@ export class Hud {
   }
 
   private tickClock(): void {
-    const s = this.demoClock ?? timeHMS(Date.now());
+    const s = timeHMS(Date.now());
     const [h, m, sec] = s.split(':');
     this.clock.innerHTML = `${h}<span class="colon">:</span>${m}<span class="colon">:</span>${sec ?? '00'}`;
   }
@@ -103,7 +102,6 @@ export class Hud {
 
   update(s: ForecastState, meta: FeedMeta): void {
     const c = s.current;
-    this.demoClock = meta.mode === 'demo' ? timeHMS(s.generatedAt) : null;
     this.tickClock();
     tweenText(this.timerN, Number.isFinite(s.progress?.pct) ? s.progress.pct : 0, (x) => (x >= 100 ? '100' : fmtNum(Math.floor(x * 10) / 10, 1)));
     const rows: [CandKey, number, number][] = [
